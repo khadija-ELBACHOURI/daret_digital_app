@@ -1,0 +1,15 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/daret_digital
+    username: daret_user
+    password: daret_pass
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+
+jwt:
+  secret: BVLII1QFcERpgGqWBBqEKTZNqAdzjN24wq9WNodOhxld5umRcXjP3FOzUtAO6Uf/xKGODAF+miVMW/uLQbJGzA==
+  expiration: 86400000
+server:
+  port: 8080
