@@ -3,6 +3,7 @@
 import type { ChangeEvent, FormEvent, ReactNode } from "react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { createDaret } from "@/lib/api";
 
 const inputClass =
   "w-full rounded-md border border-[#26282C] bg-[#101113] px-3 py-2 text-sm text-white placeholder-gray-600 outline-none transition-colors focus:border-[#00D492]";
@@ -23,14 +24,25 @@ export default function CreerDaretPage() {
     setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
   }
 
-  function handleSubmit(e: FormEvent) {
+
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setSubmitting(true);
-    // TODO: remplacer par l'appel réel à lib/api.ts (POST /darets)
-    setTimeout(() => {
+    try {
+      const group = await createDaret({
+        nom: form.nom,
+        montant: Number(form.montant),
+        frequence: form.frequence,
+        nombreMembres: Number(form.nombreMembres),
+        dateDebut: form.dateDebut,
+        description: form.description || undefined,
+      });
+      router.push(`/membre/daret/${group.id}`);
+    } catch (err) {
+      console.error(err);
+    } finally {
       setSubmitting(false);
-      router.push("/membre/daret");
-    }, 800);
+    }
   }
 
   return (

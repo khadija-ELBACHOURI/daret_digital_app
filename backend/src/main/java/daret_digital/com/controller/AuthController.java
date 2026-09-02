@@ -1,6 +1,5 @@
 package daret_digital.com.controller;
 
-import daret_digital.com.domain.Role;
 import daret_digital.com.domain.User;
 import daret_digital.com.repository.UtilisateurRepository;
 import daret_digital.com.service.JwtService;
@@ -37,12 +36,11 @@ public class AuthController {
         user.setFirstname(request.nom());
         user.setLastname(request.nom());
         user.setPassword(passwordEncoder.encode(request.motDePasse()));
-        user.setRole(Role.MEMBRE);
 
         repository.save(user);
 
         String token = jwtService.generateToken(user);
-        return ResponseEntity.ok(new AuthResponse(token, user.getRole().name()));
+        return ResponseEntity.ok(new AuthResponse(token, user.getId().toString(), user.getEmail()));
     }
 
     @PostMapping("/login")
@@ -55,10 +53,10 @@ public class AuthController {
         }
 
         String token = jwtService.generateToken(user);
-        return ResponseEntity.ok(new AuthResponse(token, user.getRole().name()));
+        return ResponseEntity.ok(new AuthResponse(token, user.getId().toString(), user.getEmail()));
     }
 }
 
 record RegisterRequest(String email, String motDePasse, String nom) {}
 record LoginRequest(String email, String motDePasse) {}
-record AuthResponse(String token, String role) {}
+record AuthResponse(String token, String userId, String email) {}

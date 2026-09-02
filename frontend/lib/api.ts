@@ -49,3 +49,35 @@ export async function loginUser(payload: {
   });
   return handleResponse(res);
 }
+
+
+if (!API_URL) {
+  throw new Error("NEXT_PUBLIC_API_URL n'est pas défini — vérifie ton .env.local");
+}
+
+export async function createDaret(payload: {
+  nom: string;
+  montant: number;
+  frequence: string;
+  nombreMembres: number;
+  dateDebut: string;
+  description?: string;
+}) {
+  const token = localStorage.getItem("token");
+
+  const res = await fetch(`${API_URL}/api/groups`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => null);
+    throw new Error(err?.message ?? "Erreur lors de la création de la daret");
+  }
+
+  return res.json();
+}

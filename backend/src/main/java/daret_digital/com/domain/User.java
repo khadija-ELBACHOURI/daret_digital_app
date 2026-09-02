@@ -3,6 +3,7 @@ package daret_digital.com.domain;
 import jakarta.persistence.*;
 import lombok.Data;
 
+import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -25,8 +26,8 @@ public class User {
     @Column(nullable = false)
     private String lastname;
 
-    @Enumerated(EnumType.STRING)
-    private Role role;
+    @OneToMany(mappedBy = "user")
+    private List<GroupMembership> memberships;
 
 
 }

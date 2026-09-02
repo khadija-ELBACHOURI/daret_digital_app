@@ -1,4 +1,6 @@
 package daret_digital.com.domain;
 
-public class GroupRole {
+public enum GroupRole {
+    ORGANISATEUR, MEMBRE
+
 }

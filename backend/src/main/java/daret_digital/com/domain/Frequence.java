@@ -1,4 +1,5 @@
 package daret_digital.com.domain;
 
-public class Frequence {
+public enum Frequence {
+    HEBDOMADAIRE, MENSUELLE
 }
