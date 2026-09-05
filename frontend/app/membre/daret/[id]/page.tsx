@@ -1,103 +1,167 @@
-import type { ReactNode } from "react";
-import { notFound } from "next/navigation";
-import { Wallet, Calendar, Users } from "lucide-react";
-import { mockDarets } from "@/lib/mock-data";
+"use client";
 
-export default function DaretDetailPage({ params }: { params: { id: string } }) {
-  const daret = mockDarets.find((d) => d.id === params.id);
-  if (!daret) notFound();
+import type { ReactNode } from "react";
+import { Wallet, Calendar, Users } from "lucide-react";
+import { useParams, notFound } from "next/navigation";
+import { getGroup, getGroupMembers, assignPosition, DaretGroup, MemberResponse } from "@/lib/api";
+import { useAuth } from "@/lib/auth-context";
+import { useCallback, useEffect, useState } from "react";
+import AddMemberForm from "@/components/AddMemberForm";
+
+export default function DaretDetailPage() {
+  const { id } = useParams<{ id: string }>();
+  const { userId } = useAuth();
+  const [group, setGroup] = useState<DaretGroup | null>(null);
+  const [members, setMembers] = useState<MemberResponse[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const [savingUserId, setSavingUserId] = useState<string | null>(null);
+
+  const loadData = useCallback(() => {
+    return Promise.all([getGroup(id), getGroupMembers(id)])
+      .then(([g, m]) => {
+        setGroup(g);
+        setMembers(m);
+      })
+      .catch(() => setError(true));
+  }, [id]);
+
+  useEffect(() => {
+    loadData().finally(() => setLoading(false));
+  }, [loadData]);
+
+  if (loading) return <div className="text-gray-400">Chargement...</div>;
+  if (error || !group) return notFound();
+
+  const currentMember = members.find((m) => m.userId === userId);
+  const isOrganisateur = currentMember?.role === "ORGANISATEUR";
+
+  const sortedMembers = [...members].sort(
+    (a, b) => (a.position ?? Infinity) - (b.position ?? Infinity)
+  );
+
+  const takenPositions = new Set(
+    members.filter((m) => m.position != null).map((m) => m.position)
+  );
+
+  async function handlePositionChange(memberUserId: string, value: string) {
+    const position = value === "" ? null : Number(value);
+    if (position === null) return;
+
+    setSavingUserId(memberUserId);
+    try {
+      await assignPosition(id, memberUserId, position);
+      await loadData();
+    } catch {
+      // silencieux ici, l'affichage repart de l'état précédent au prochain loadData
+    } finally {
+      setSavingUserId(null);
+    }
+  }
 
   return (
     <div className="max-w-4xl">
       <div id="apercu" className="mb-6">
-        <h1 className="text-2xl font-semibold text-white">{daret.name}</h1>
+        <h1 className="text-2xl font-semibold text-white">{group.nom}</h1>
         <p className="mt-1 text-sm text-gray-400">
-          {daret.members.length} membres · tour {daret.currentTurn} sur {daret.totalTurns}
+          {members.length} membre{members.length > 1 ? "s" : ""} · {group.nombreMembres} places
         </p>
       </div>
 
       <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <InfoCard icon={<Wallet className="h-4 w-4" />} label="Montant / tour" value={`${daret.amount.toLocaleString("fr-FR")} MAD`} />
+        <InfoCard
+          icon={<Wallet className="h-4 w-4" />}
+          label="Montant / tour"
+          value={`${group.montant.toLocaleString("fr-FR")} MAD`}
+        />
         <InfoCard
           icon={<Calendar className="h-4 w-4" />}
-          label="Prochain paiement"
-          value={new Date(daret.nextPaymentDate).toLocaleDateString("fr-FR", { day: "2-digit", month: "long" })}
+          label="Date de début"
+          value={new Date(group.dateDebut).toLocaleDateString("fr-FR", {
+            day: "2-digit",
+            month: "long",
+          })}
         />
-        <InfoCard icon={<Users className="h-4 w-4" />} label="Ma position" value={`#${daret.myPosition}`} />
+        <InfoCard
+          icon={<Users className="h-4 w-4" />}
+          label="Fréquence"
+          value={group.frequence}
+        />
       </div>
 
       <div id="membres" className="mb-8 scroll-mt-8">
-        <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-gray-500">Ordre de passage</h2>
-        <div className="rounded-lg border border-[#1F2023] bg-[#101113]">
-          {daret.members.map((m, i) => (
-            <div
-              key={m.id}
-              className={`flex items-center justify-between px-4 py-3 text-sm ${
-                i !== daret.members.length - 1 ? "border-b border-[#1F2023]" : ""
-              } ${m.turnOrder === daret.currentTurn ? "bg-[#0F1A15]" : ""}`}
-            >
-              <div className="flex items-center gap-3">
-                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#1F2023] text-xs text-gray-300">
-                  {m.turnOrder}
-                </div>
-                <span className={m.isCurrentUser ? "font-medium text-white" : "text-gray-300"}>
-                  {m.name} {m.isCurrentUser && <span className="text-xs text-gray-500">(vous)</span>}
-                </span>
-                {m.turnOrder === daret.currentTurn && (
-                  <span className="rounded-full bg-[#16241D] px-2 py-0.5 text-xs text-[#00D492]">Tour actuel</span>
-                )}
-              </div>
-              <span className={`text-xs ${m.hasPaid ? "text-[#00D492]" : "text-gray-500"}`}>
-                {m.hasPaid ? "Payé" : "En attente"}
-              </span>
-            </div>
-          ))}
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-sm font-medium uppercase tracking-wide text-gray-500">
+            Membres
+          </h2>
+          {members.length >= group.nombreMembres && (
+            <span className="text-xs text-gray-500">Groupe complet</span>
+          )}
         </div>
-      </div>
 
-      <div id="paiements" className="mb-8 scroll-mt-8">
-        <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-gray-500">Paiements du tour {daret.currentTurn}</h2>
+        {isOrganisateur && members.length < group.nombreMembres && (
+          <div className="mb-3">
+            <AddMemberForm groupId={id} onMemberAdded={loadData} />
+          </div>
+        )}
+
         <div className="rounded-lg border border-[#1F2023] bg-[#101113]">
-          {daret.members.map((m, i) => (
+          {sortedMembers.map((m, i) => (
             <div
-              key={m.id}
+              key={m.userId}
               className={`flex items-center justify-between px-4 py-3 text-sm ${
-                i !== daret.members.length - 1 ? "border-b border-[#1F2023]" : ""
+                i !== sortedMembers.length - 1 ? "border-b border-[#1F2023]" : ""
               }`}
             >
-              <span className="text-gray-300">{m.name}</span>
-              <span className={`text-xs ${m.hasPaid ? "text-[#00D492]" : "text-gray-500"}`}>
-                {m.hasPaid ? `${daret.amount.toLocaleString("fr-FR")} MAD reçu` : "En attente"}
-              </span>
+              <div className="flex items-center gap-3">
+                {isOrganisateur ? (
+                  <select
+                    value={m.position ?? ""}
+                    onChange={(e) => handlePositionChange(m.userId, e.target.value)}
+                    disabled={savingUserId === m.userId}
+                    className="h-7 w-14 rounded-md border border-[#26282C] bg-[#0A0B0D] text-center text-xs text-gray-300 focus:border-[#00D492] focus:outline-none disabled:opacity-50"
+                  >
+                    <option value="">–</option>
+                    {Array.from({ length: group.nombreMembres }, (_, idx) => idx + 1).map((pos) => (
+                      <option
+                        key={pos}
+                        value={pos}
+                        disabled={takenPositions.has(pos) && pos !== m.position}
+                      >
+                        {pos}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#1F2023] text-xs text-gray-300">
+                    {m.position ?? "–"}
+                  </div>
+                )}
+                <span className="text-gray-300">
+                  {m.firstname} {m.lastname}
+                </span>
+                {m.role === "ORGANISATEUR" && (
+                  <span className="rounded-full bg-[#16241D] px-2 py-0.5 text-xs text-[#00D492]">
+                    Organisateur
+                  </span>
+                )}
+              </div>
+              <span className="text-xs text-gray-500">{m.email}</span>
             </div>
           ))}
         </div>
       </div>
 
-      <div id="calendrier" className="scroll-mt-8">
-        <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-gray-500">Calendrier des tours</h2>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          {Array.from({ length: daret.totalTurns }).map((_, i) => {
-            const turn = i + 1;
-            const isPast = turn < daret.currentTurn;
-            const isCurrent = turn === daret.currentTurn;
-            return (
-              <div
-                key={turn}
-                className={`rounded-md border px-3 py-2 text-xs ${
-                  isCurrent
-                    ? "border-[#00D492] bg-[#0F1A15] text-[#00D492]"
-                    : isPast
-                    ? "border-[#1F2023] bg-[#101113] text-gray-500"
-                    : "border-[#1F2023] bg-[#0A0B0D] text-gray-400"
-                }`}
-              >
-                Tour {turn}
-              </div>
-            );
-          })}
+      {group.description && (
+        <div id="description" className="scroll-mt-8">
+          <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-gray-500">
+            Description
+          </h2>
+          <p className="rounded-lg border border-[#1F2023] bg-[#101113] p-4 text-sm text-gray-300">
+            {group.description}
+          </p>
         </div>
-      </div>
+      )}
     </div>
   );
 }

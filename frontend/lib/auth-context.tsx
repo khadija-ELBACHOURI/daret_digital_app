@@ -10,11 +10,10 @@ import {
 import { useRouter } from "next/navigation";
 import { loginUser, registerUser, AuthResponse } from "./api";
 
-type Role = "ADMIN" | "MEMBRE";
-
 interface AuthContextValue {
   token: string | null;
-  role: Role | null;
+  userId: string | null;
+  email: string | null;
   isLoading: boolean;
   login: (email: string, motDePasse: string) => Promise<void>;
   register: (nom: string, email: string, motDePasse: string) => Promise<void>;
@@ -39,13 +38,10 @@ function readPersisted(): AuthResponse | null {
   }
 }
 
-function roleHome(role: Role) {
-  return role === "ADMIN" ? "/admin/dashboard" : "/membre/dashboard";
-}
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
-  const [role, setRole] = useState<Role | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [email, setEmail] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
@@ -53,7 +49,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const saved = readPersisted();
     if (saved) {
       setToken(saved.token);
-      setRole(saved.role);
+      setUserId(saved.userId);
+      setEmail(saved.email);
     }
     setIsLoading(false);
   }, []);
@@ -62,28 +59,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const auth = await loginUser({ email, motDePasse });
     persist(auth);
     setToken(auth.token);
-    setRole(auth.role);
-    router.push(roleHome(auth.role));
+    setUserId(auth.userId);
+    setEmail(auth.email);
+    router.push("/membre/daret"); // page unique : liste des darets de l'utilisateur
   }
 
   async function register(nom: string, email: string, motDePasse: string) {
     const auth = await registerUser({ nom, email, motDePasse });
     persist(auth);
     setToken(auth.token);
-    setRole(auth.role);
-    router.push(roleHome(auth.role));
+    setUserId(auth.userId);
+    setEmail(auth.email);
+    router.push("/membre/daret");
   }
 
   function logout() {
     localStorage.removeItem(STORAGE_KEY);
     setToken(null);
-    setRole(null);
+    setUserId(null);
+    setEmail(null);
     router.push("/login");
   }
 
   return (
     <AuthContext.Provider
-      value={{ token, role, isLoading, login, register, logout }}
+      value={{ token, userId, email, isLoading, login, register, logout }}
     >
       {children}
     </AuthContext.Provider>
