@@ -5,6 +5,8 @@ import daret_digital.com.domain.Frequence;
 import daret_digital.com.domain.GroupMembership;
 import daret_digital.com.domain.GroupRole;
 import daret_digital.com.domain.User;
+import daret_digital.com.dto.MemberResponse;
+import daret_digital.com.dto.MyGroupResponse;
 import daret_digital.com.repository.DaretGroupRepository;
 import daret_digital.com.repository.GroupMembershipRepository;
 import daret_digital.com.repository.UtilisateurRepository;
@@ -41,7 +43,7 @@ public class GroupController {
                 .orElseThrow(() -> new IllegalStateException("Utilisateur introuvable"));
 
         DaretGroup group = new DaretGroup();
-        group.setName(request.nom());
+        group.setNom(request.nom());
         group.setMontant(request.montant());
         group.setFrequence(Frequence.valueOf(request.frequence().toUpperCase()));
         group.setNombreMembres(request.nombreMembres());
@@ -55,7 +57,7 @@ public class GroupController {
         membership.setRole(GroupRole.ORGANISATEUR);
         membershipRepository.save(membership);
 
-        return ResponseEntity.ok(group);
+        return ResponseEntity.ok(GroupResponse.from(group));
     }
 
     @GetMapping("/{groupId}")
@@ -63,7 +65,7 @@ public class GroupController {
     public ResponseEntity<?> getGroup(@PathVariable UUID groupId) {
         DaretGroup group = groupRepository.findById(groupId)
                 .orElseThrow(() -> new IllegalArgumentException("Groupe introuvable"));
-        return ResponseEntity.ok(group);
+        return ResponseEntity.ok(GroupResponse.from(group));
     }
 
     @PostMapping("/{groupId}/members")
@@ -86,14 +88,26 @@ public class GroupController {
         membership.setRole(GroupRole.MEMBRE);
         membershipRepository.save(membership);
 
-        return ResponseEntity.ok().build();
+        return ResponseEntity.ok(MemberResponse.from(membership));
     }
 
     @GetMapping("/{groupId}/members")
     @PreAuthorize("@groupSecurity.isMember(#groupId, authentication.name)")
     public ResponseEntity<?> listMembers(@PathVariable UUID groupId) {
         List<GroupMembership> members = membershipRepository.findByGroupId(groupId);
-        return ResponseEntity.ok(members);
+
+        List<MemberResponse> response = members.stream()
+                .map(m -> new MemberResponse(
+                        m.getUser().getId(),
+                        m.getUser().getFirstname(),
+                        m.getUser().getLastname(),
+                        m.getUser().getEmail(),
+                        m.getRole(),
+                        m.getPosition()
+                ))
+                .toList();
+
+        return ResponseEntity.ok(response);
     }
 
     @DeleteMapping("/{groupId}/members/{userId}")
@@ -110,7 +124,39 @@ public class GroupController {
     @GetMapping("/mine")
     public ResponseEntity<?> myGroups(Authentication authentication) {
         List<GroupMembership> memberships = membershipRepository.findByUserEmail(authentication.getName());
-        return ResponseEntity.ok(memberships);
+
+        List<MyGroupResponse> response = memberships.stream()
+                .map(m -> new MyGroupResponse(
+                        m.getGroup().getId(),
+                        m.getGroup().getNom(),
+                        m.getGroup().getMontant(),
+                        m.getGroup().getFrequence().name(),
+                        m.getGroup().getNombreMembres(),
+                        m.getGroup().getDateDebut(),
+                        m.getGroup().getStatut(),
+                        m.getGroup().getTourActuel(),
+                        m.getPosition(),
+                        m.getRole()
+                ))
+                .toList();
+
+        return ResponseEntity.ok(response);
+    }
+
+    @PatchMapping("/{groupId}/members/{userId}/position")
+    @PreAuthorize("@groupSecurity.hasRole(#groupId, authentication.name, 'ORGANISATEUR')")
+    public ResponseEntity<?> assignPosition(@PathVariable UUID groupId,
+                                            @PathVariable UUID userId,
+                                            @RequestBody AssignPositionRequest request) {
+        GroupMembership membership = membershipRepository.findByGroupId(groupId).stream()
+                .filter(m -> m.getUser().getId().equals(userId))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Membre introuvable dans ce groupe"));
+
+        membership.setPosition(request.position());
+        membershipRepository.save(membership);
+
+        return ResponseEntity.ok(MemberResponse.from(membership));
     }
 }
 
@@ -124,3 +170,27 @@ record CreateGroupRequest(
 ) {}
 
 record AddMemberRequest(String email) {}
+record AssignPositionRequest(Integer position) {}
+
+record GroupResponse(
+        UUID id,
+        String nom,
+        BigDecimal montant,
+        String frequence,
+        Integer nombreMembres,
+        LocalDate dateDebut,
+        String description
+) {
+    static GroupResponse from(DaretGroup g) {
+        return new GroupResponse(
+                g.getId(),
+                g.getNom(),
+                g.getMontant(),
+                g.getFrequence() != null ? g.getFrequence().name() : null,
+                g.getNombreMembres(),
+                g.getDateDebut(),
+                g.getDescription()
+        );
+    }
+}
+

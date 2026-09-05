@@ -1,7 +1,5 @@
 package daret_digital.com.domain;
 
-package daret_digital.com.domain;
-
 import jakarta.persistence.*;
 import lombok.Data;
 
@@ -31,4 +29,9 @@ public class GroupMembership {
 
     @Column(name = "joined_at")
     private Instant joinedAt = Instant.now();
+
+    private Integer position;
+
+    public Integer getPosition() { return position; }
+    public void setPosition(Integer position) { this.position = position; }
 }

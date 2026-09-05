@@ -1,6 +1,12 @@
 package daret_digital.com.domain;
 
-import jakarta.persistence.Id;
+import jakarta.persistence.*;
+import lombok.Data;
+
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.util.UUID;
 
 @Entity
 @Table(name = "daret_groups")
@@ -29,4 +35,12 @@ public class DaretGroup {
 
     @Column(name = "created_at")
     private Instant createdAt = Instant.now();
+
+    public enum DaretStatus { EN_ATTENTE, ACTIVE, TERMINEE }
+
+    @Enumerated(EnumType.STRING)
+    private DaretStatus statut = DaretStatus.EN_ATTENTE;
+
+    private Integer tourActuel = 0;
+
 }
