@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   LayoutDashboard,
   Users,
@@ -15,7 +15,7 @@ import {
   Calendar,
   Shield,
 } from "lucide-react";
-import { mockDarets } from "@/lib/mock-data";
+import { getMyGroups, type MyGroupResponse } from "@/lib/api";
 
 const mainNav = [
   { href: "/membre/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -34,9 +34,16 @@ const activeDaretNav = [
 export default function Sidebar() {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
+  const [groups, setGroups] = useState<MyGroupResponse[]>([]);
 
-  // "Daret active" = première daret active du membre, pour l'exemple.
-  const activeDaret = mockDarets.find((d) => d.status === "active");
+  useEffect(() => {
+    getMyGroups()
+      .then(setGroups)
+      .catch(() => setGroups([])); // silencieux : la sidebar reste utilisable sans daret active
+  }, []);
+
+  // "Daret active" = première daret active du membre.
+  const activeDaret = groups.find((d) => d.statut === "ACTIVE");
   const inDaretDetail = pathname?.startsWith("/membre/daret/") && activeDaret
     ? pathname.includes(activeDaret.id)
     : false;
@@ -124,7 +131,7 @@ export default function Sidebar() {
               className="mb-2 flex w-full items-center gap-2 rounded-md border border-[#26282C] bg-[#101113] px-3 py-2 text-sm text-white transition-colors hover:border-[#00D492]/50"
             >
               <Shield className="h-4 w-4 text-[#00D492]" />
-              <span className="truncate">{activeDaret.name}</span>
+              <span className="truncate">{activeDaret.nom}</span>
               <ChevronsUpDown className="ml-auto h-3.5 w-3.5 text-gray-500" />
             </Link>
           </div>
