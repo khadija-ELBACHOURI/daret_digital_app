@@ -158,6 +158,21 @@ public class GroupController {
 
         return ResponseEntity.ok(MemberResponse.from(membership));
     }
+
+    @PatchMapping("/{groupId}/status")
+    @PreAuthorize("@groupSecurity.hasRole(#groupId, authentication.name, 'ORGANISATEUR')")
+    public ResponseEntity<?> updateStatus(@PathVariable UUID groupId,
+                                          @RequestBody UpdateStatusRequest request) {
+        DaretGroup group = groupRepository.findById(groupId)
+                .orElseThrow(() -> new IllegalArgumentException("Groupe introuvable"));
+
+        group.setStatut(DaretGroup.DaretStatus.valueOf(request.statut().toUpperCase()));
+        groupRepository.save(group);
+
+        return ResponseEntity.ok(GroupResponse.from(group));
+    }
+
+    record UpdateStatusRequest(String statut) {}
 }
 
 record CreateGroupRequest(
@@ -172,6 +187,7 @@ record CreateGroupRequest(
 record AddMemberRequest(String email) {}
 record AssignPositionRequest(Integer position) {}
 
+
 record GroupResponse(
         UUID id,
         String nom,
@@ -179,7 +195,9 @@ record GroupResponse(
         String frequence,
         Integer nombreMembres,
         LocalDate dateDebut,
-        String description
+        String description,
+        DaretGroup.DaretStatus statut,
+        Integer tourActuel
 ) {
     static GroupResponse from(DaretGroup g) {
         return new GroupResponse(
@@ -189,7 +207,9 @@ record GroupResponse(
                 g.getFrequence() != null ? g.getFrequence().name() : null,
                 g.getNombreMembres(),
                 g.getDateDebut(),
-                g.getDescription()
+                g.getDescription(),
+                g.getStatut(),
+                g.getTourActuel()
         );
     }
 }

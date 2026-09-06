@@ -3,10 +3,24 @@
 import type { ReactNode } from "react";
 import { Wallet, Calendar, Users } from "lucide-react";
 import { useParams, notFound } from "next/navigation";
-import { getGroup, getGroupMembers, assignPosition, DaretGroup, MemberResponse } from "@/lib/api";
+import {
+  getGroup,
+  getGroupMembers,
+  assignPosition,
+  updateGroupStatus,
+  DaretGroup,
+  DaretStatus,
+  MemberResponse,
+} from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { useCallback, useEffect, useState } from "react";
 import AddMemberForm from "@/components/AddMemberForm";
+
+const statusLabel: Record<DaretStatus, { label: string; className: string }> = {
+  EN_ATTENTE: { label: "En attente", className: "bg-[#2A2410] text-[#E5B800]" },
+  ACTIVE: { label: "Active", className: "bg-[#16241D] text-[#00D492]" },
+  TERMINEE: { label: "Terminée", className: "bg-[#1F2023] text-gray-400" },
+};
 
 export default function DaretDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -16,6 +30,7 @@ export default function DaretDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [savingUserId, setSavingUserId] = useState<string | null>(null);
+  const [savingStatus, setSavingStatus] = useState(false); // moved up, before any early return
 
   const loadData = useCallback(() => {
     return Promise.all([getGroup(id), getGroupMembers(id)])
@@ -59,13 +74,44 @@ export default function DaretDetailPage() {
     }
   }
 
+  async function handleStatusChange(value: string) {
+    setSavingStatus(true);
+    try {
+      await updateGroupStatus(id, value as DaretStatus);
+      await loadData();
+    } catch {
+      // silencieux, comme pour la position
+    } finally {
+      setSavingStatus(false);
+    }
+  }
+
   return (
     <div className="max-w-4xl">
-      <div id="apercu" className="mb-6">
-        <h1 className="text-2xl font-semibold text-white">{group.nom}</h1>
-        <p className="mt-1 text-sm text-gray-400">
-          {members.length} membre{members.length > 1 ? "s" : ""} · {group.nombreMembres} places
-        </p>
+      <div id="apercu" className="mb-6 flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold text-white">{group.nom}</h1>
+          <p className="mt-1 text-sm text-gray-400">
+            {members.length} membre{members.length > 1 ? "s" : ""} · {group.nombreMembres} places
+          </p>
+        </div>
+
+        {isOrganisateur ? (
+          <select
+            value={group.statut}
+            onChange={(e) => handleStatusChange(e.target.value)}
+            disabled={savingStatus}
+            className="h-8 rounded-md border border-[#26282C] bg-[#0A0B0D] px-2 text-xs text-gray-300 focus:border-[#00D492] focus:outline-none disabled:opacity-50"
+          >
+            <option value="EN_ATTENTE">En attente</option>
+            <option value="ACTIVE">Active</option>
+            <option value="TERMINEE">Terminée</option>
+          </select>
+        ) : (
+          <span className={`rounded-full px-2 py-0.5 text-xs ${statusLabel[group.statut]?.className ?? ""}`}>
+            {statusLabel[group.statut]?.label ?? group.statut}
+          </span>
+        )}
       </div>
 
       <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3">

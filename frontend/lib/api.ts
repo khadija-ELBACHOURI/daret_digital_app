@@ -7,6 +7,19 @@ export interface AuthResponse {
   email: string;
 }
 
+export type DaretStatus = "EN_ATTENTE" | "ACTIVE" | "TERMINEE";
+
+export interface DaretGroup {
+  id: string;
+  nom: string;
+  montant: number;
+  frequence: string;
+  nombreMembres: number;
+  dateDebut: string;
+  description?: string;
+  statut: DaretStatus;
+  tourActuel: number;
+}
 export interface ApiError {
   message: string;
 }
@@ -63,16 +76,6 @@ export async function loginUser(payload: {
     body: JSON.stringify(payload),
   });
   return handleResponse<AuthResponse>(res);
-}
-
-export interface DaretGroup {
-  id: string;
-  nom: string;
-  montant: number;
-  frequence: string;
-  nombreMembres: number;
-  dateDebut: string;
-  description?: string;
 }
 
 export async function createDaret(payload: {
@@ -180,4 +183,22 @@ export async function assignPosition(
   });
 
   return handleResponse<MemberResponse>(res);
+}
+
+export async function updateGroupStatus(
+  groupId: string,
+  statut: DaretStatus
+): Promise<DaretGroup> {
+  const token = getToken();
+
+  const res = await fetch(`${API_URL}/api/groups/${groupId}/status`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ statut }),
+  });
+
+  return handleResponse<DaretGroup>(res);
 }
