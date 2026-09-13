@@ -1,22 +1,22 @@
 package daret_digital.com.repository;
 
-
 import daret_digital.com.domain.DaretGroup;
 import daret_digital.com.domain.Payment;
-import daret_digital.com.domain.StatutPaiement;
+import daret_digital.com.domain.PaymentStatus;
 import daret_digital.com.domain.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
-public interface PaiementRepository extends JpaRepository<Payment, Long> {
+public interface PaymentRepository extends JpaRepository<Payment, UUID> {
 
-    List<Payment> findByGroupeAndCycle(DaretGroup groupe, int cycle);
+    List<Payment> findByGroupAndCycle(DaretGroup group, Integer cycle);
 
-    Optional<Payment> findByGroupeAndMembreAndCycle(DaretGroup groupe, User membre, int cycle);
+    Optional<Payment> findByGroupAndMemberAndCycle(DaretGroup group, User member, Integer cycle);
 
-    List<Payment> findByMembreOrderByCycleDesc(User membre);
+    List<Payment> findByMemberOrderByCycleDesc(User member);
 
-    boolean existsByGroupeAndCycleAndStatutNot(DaretGroup groupe, int cycle, StatutPaiement statut);
+    boolean existsByGroupAndCycleAndStatusNot(DaretGroup group, Integer cycle, PaymentStatus status);
 }

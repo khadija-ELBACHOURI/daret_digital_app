@@ -1,6 +1,8 @@
 package daret_digital.com.repository;
 
+import daret_digital.com.domain.DaretGroup;
 import daret_digital.com.domain.GroupMembership;
+import daret_digital.com.domain.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -21,4 +23,10 @@ public interface GroupMembershipRepository extends JpaRepository<GroupMembership
     List<GroupMembership> findByUserEmail(String email);
 
     List<GroupMembership> findByGroupId(UUID groupId);
+
+
+    Optional<GroupMembership> findByGroupAndPosition(DaretGroup group, Integer position);
+
+    Optional<GroupMembership> findByGroupAndUser(DaretGroup group, User user);
+    List<GroupMembership> findByGroup(DaretGroup group);
 }
