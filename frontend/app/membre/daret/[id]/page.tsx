@@ -15,6 +15,7 @@ import {
 import { useAuth } from "@/lib/auth-context";
 import { useCallback, useEffect, useState } from "react";
 import AddMemberForm from "@/components/AddMemberForm";
+import PaymentsPanel from "@/components/PaymentsPanel";
 
 const statusLabel: Record<DaretStatus, { label: string; className: string }> = {
   EN_ATTENTE: { label: "En attente", className: "bg-[#2A2410] text-[#E5B800]" },
@@ -197,6 +198,21 @@ export default function DaretDetailPage() {
           ))}
         </div>
       </div>
+
+      {group.statut === "ACTIVE" && (
+        <div id="paiements" className="mb-8 scroll-mt-8">
+          <PaymentsPanel
+            groupId={id}
+            cycle={group.tourActuel}
+            totalTurns={group.nombreMembres}
+            amount={group.montant}
+            members={members}
+            currentUserId={userId}
+            isOrganisateur={isOrganisateur}
+            onTurnClosed={loadData}
+          />
+        </div>
+      )}
 
       {group.description && (
         <div id="description" className="scroll-mt-8">

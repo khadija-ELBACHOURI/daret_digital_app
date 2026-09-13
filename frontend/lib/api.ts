@@ -202,3 +202,81 @@ export async function updateGroupStatus(
 
   return handleResponse<DaretGroup>(res);
 }
+
+// ---------- Payments ----------
+
+export type PaymentStatus = "PENDING" | "PAID" | "VALIDATED" | "LATE";
+
+export interface PaymentResponse {
+  id: string;
+  groupId: string;
+  memberId: string;
+  memberName: string;
+  cycle: number;
+  amount: number;
+  status: PaymentStatus;
+  paidAt: string | null;
+}
+
+export async function getPaymentsForCycle(
+  groupId: string,
+  cycle: number
+): Promise<PaymentResponse[]> {
+  const token = getToken();
+  const res = await fetch(`${API_URL}/api/groups/${groupId}/payments?cycle=${cycle}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return handleResponse<PaymentResponse[]>(res);
+}
+
+export async function declareMyPayment(
+  groupId: string,
+  proofUrl?: string
+): Promise<PaymentResponse> {
+  const token = getToken();
+  const res = await fetch(`${API_URL}/api/groups/${groupId}/payments/me`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ proofUrl: proofUrl ?? null }),
+  });
+  return handleResponse<PaymentResponse>(res);
+}
+
+export async function validatePayment(
+  groupId: string,
+  paymentId: string
+): Promise<PaymentResponse> {
+  const token = getToken();
+  const res = await fetch(`${API_URL}/api/groups/${groupId}/payments/${paymentId}/validate`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return handleResponse<PaymentResponse>(res);
+}
+
+export interface GroupTurnState {
+  id: string;
+  tourActuel: number;
+  statut: DaretStatus;
+}
+
+export async function closeTurn(groupId: string): Promise<GroupTurnState> {
+  const token = getToken();
+  const res = await fetch(`${API_URL}/api/groups/${groupId}/payments/turn/close`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return handleResponse<GroupTurnState>(res);
+}
+
+export async function generatePayments(groupId: string): Promise<PaymentResponse[]> {
+  const token = getToken();
+  const res = await fetch(`${API_URL}/api/groups/${groupId}/payments/generate`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return handleResponse<PaymentResponse[]>(res);
+}
