@@ -5,7 +5,7 @@ import { useAuth } from "@/lib/auth-context";
 
 export default function AdminDashboardPage() {
   return (
-    <AuthGuard allowedRoles={["ADMIN"]}>
+    <AuthGuard>
       <DashboardContent />
     </AuthGuard>
   );
@@ -27,8 +27,8 @@ function DashboardContent() {
           </button>
         </div>
         <p className="mt-4 text-sm text-[#F2E8D5]/60">
-          Connecte en tant qu&apos;ADMIN. Ici viendront la creation de groupes,
-          la gestion des membres et la validation des paiements.
+          Ici viendront la creation de groupes, la gestion des membres et la
+          validation des paiements.
         </p>
       </div>
     </div>
