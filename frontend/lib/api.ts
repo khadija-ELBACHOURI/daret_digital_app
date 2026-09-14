@@ -280,3 +280,43 @@ export async function generatePayments(groupId: string): Promise<PaymentResponse
   });
   return handleResponse<PaymentResponse[]>(res);
 }
+
+// ---------- Payouts ----------
+
+export type PayoutStatus = "EN_ATTENTE" | "VERSE";
+
+export interface PayoutResponse {
+  id: string;
+  groupId: string;
+  beneficiaryId: string;
+  beneficiaryName: string;
+  cycle: number;
+  amount: number;
+  status: PayoutStatus;
+  paidAt: string | null;
+}
+
+export async function getCurrentPayout(groupId: string): Promise<PayoutResponse> {
+  const token = getToken();
+  const res = await fetch(`${API_URL}/api/groups/${groupId}/payouts/current`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return handleResponse<PayoutResponse>(res);
+}
+
+export async function confirmCurrentPayout(groupId: string): Promise<PayoutResponse> {
+  const token = getToken();
+  const res = await fetch(`${API_URL}/api/groups/${groupId}/payouts/current/confirm`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return handleResponse<PayoutResponse>(res);
+}
+
+export async function getPayoutHistory(groupId: string): Promise<PayoutResponse[]> {
+  const token = getToken();
+  const res = await fetch(`${API_URL}/api/groups/${groupId}/payouts/history`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return handleResponse<PayoutResponse[]>(res);
+}

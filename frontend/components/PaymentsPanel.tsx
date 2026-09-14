@@ -1,16 +1,19 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { CheckCircle2, Clock, AlertTriangle, Wallet } from "lucide-react";
+import { CheckCircle2, Clock, AlertTriangle, Wallet, Gift } from "lucide-react";
 import {
   closeTurn,
+  confirmCurrentPayout,
   declareMyPayment,
   generatePayments,
+  getCurrentPayout,
   getPaymentsForCycle,
   validatePayment,
   MemberResponse,
   PaymentResponse,
   PaymentStatus,
+  PayoutResponse,
 } from "@/lib/api";
 
 type RowStatus = PaymentStatus | "NON_GENEREE";
@@ -45,11 +48,13 @@ export default function PaymentsPanel({
   onTurnClosed,
 }: PaymentsPanelProps) {
   const [payments, setPayments] = useState<PaymentResponse[]>([]);
+  const [payout, setPayout] = useState<PayoutResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actioningId, setActioningId] = useState<string | null>(null);
   const [closing, setClosing] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [confirmingPayout, setConfirmingPayout] = useState(false);
 
   const loadPayments = useCallback(() => {
     return getPaymentsForCycle(groupId, cycle)
@@ -63,11 +68,17 @@ export default function PaymentsPanel({
       );
   }, [groupId, cycle]);
 
+  const loadPayout = useCallback(() => {
+    return getCurrentPayout(groupId)
+      .then(setPayout)
+      .catch(() => setPayout(null)); // silencieux, ex: position pas encore assignée
+  }, [groupId]);
+
   useEffect(() => {
     setLoading(true);
     setError(null);
-    loadPayments().finally(() => setLoading(false));
-  }, [loadPayments]);
+    Promise.all([loadPayments(), loadPayout()]).finally(() => setLoading(false));
+  }, [loadPayments, loadPayout]);
 
   const sortedMembers = [...members].sort(
     (a, b) => (a.position ?? Infinity) - (b.position ?? Infinity)
@@ -83,6 +94,7 @@ export default function PaymentsPanel({
     payments.length === members.length &&
     payments.length > 0 &&
     payments.every((p) => p.status === "VALIDATED");
+  const payoutConfirmed = payout?.status === "VERSE";
 
   async function handleDeclare() {
     setError(null);
@@ -120,6 +132,19 @@ export default function PaymentsPanel({
       setError(err instanceof Error ? err.message : "Erreur inconnue");
     } finally {
       setGenerating(false);
+    }
+  }
+
+  async function handleConfirmPayout() {
+    setError(null);
+    setConfirmingPayout(true);
+    try {
+      const updated = await confirmCurrentPayout(groupId);
+      setPayout(updated);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erreur inconnue");
+    } finally {
+      setConfirmingPayout(false);
     }
   }
 
@@ -201,7 +226,7 @@ export default function PaymentsPanel({
                   </button>
                 )}
 
-                {!isOrganisateur && isMe && payment?.status === "PENDING" && (
+                {isMe && payment?.status === "PENDING" && (
                   <button
                     onClick={handleDeclare}
                     disabled={actioningId === "me"}
@@ -223,31 +248,62 @@ export default function PaymentsPanel({
         </p>
       )}
 
-      {!isOrganisateur && myPayment?.status === "VALIDATED" && (
+      {myPayment?.status === "VALIDATED" && (
         <p className="mt-2 flex items-center gap-1 text-sm text-[#00D492]">
           <CheckCircle2 className="h-3.5 w-3.5" />
           Votre cotisation pour ce tour est validée.
         </p>
       )}
 
-      {!isOrganisateur && myPayment?.status === "PAID" && (
+      {myPayment?.status === "PAID" && (
         <p className="mt-2 flex items-center gap-1 text-sm text-gray-400">
           <Clock className="h-3.5 w-3.5" />
           En attente de validation par l&apos;organisateur.
         </p>
       )}
 
+      {!loading && allValidated && payout && (
+        <div className="mt-3 flex items-center justify-between rounded-lg border border-[#1F2023] bg-[#101113] p-4">
+          <div className="flex items-center gap-2 text-sm text-gray-300">
+            <Gift className="h-4 w-4 text-[#00D492]" />
+            <span>
+              Bénéficiaire de ce tour : <strong>{payout.beneficiaryName}</strong> ·{" "}
+              {payout.amount.toLocaleString("fr-FR")} MAD
+            </span>
+          </div>
+          {payoutConfirmed ? (
+            <span className="rounded-full bg-[#16241D] px-2 py-0.5 text-xs text-[#00D492]">
+              Versé
+            </span>
+          ) : isOrganisateur ? (
+            <button
+              onClick={handleConfirmPayout}
+              disabled={confirmingPayout}
+              className="rounded-md bg-[#00D492] px-3 py-1.5 text-xs font-medium text-black transition-colors hover:bg-[#00c184] disabled:opacity-50"
+            >
+              {confirmingPayout ? "Confirmation..." : "Confirmer le versement"}
+            </button>
+          ) : (
+            <span className="rounded-full bg-[#2A2410] px-2 py-0.5 text-xs text-[#E5B800]">
+              En attente
+            </span>
+          )}
+        </div>
+      )}
+
       {isOrganisateur && (
         <div className="mt-3 flex items-center justify-between rounded-lg border border-[#1F2023] bg-[#101113] p-4">
           <div className="flex items-center gap-2 text-sm text-gray-400">
             <Wallet className="h-4 w-4" />
-            {allValidated
-              ? "Tous les membres ont payé et sont validés."
-              : "En attente que tous les paiements soient validés."}
+            {!allValidated
+              ? "En attente que tous les paiements soient validés."
+              : !payoutConfirmed
+              ? "En attente de la confirmation du versement au bénéficiaire."
+              : "Tous les paiements sont validés et le versement est confirmé."}
           </div>
           <button
             onClick={handleCloseTurn}
-            disabled={!allValidated || closing}
+            disabled={!allValidated || !payoutConfirmed || closing}
             className="rounded-md bg-[#00D492] px-4 py-2 text-sm font-medium text-black transition-colors hover:bg-[#00c184] disabled:cursor-not-allowed disabled:opacity-40"
           >
             {closing ? "Clôture..." : "Clôturer le tour"}
