@@ -4,6 +4,7 @@ import daret_digital.com.domain.*;
 import daret_digital.com.repository.DaretGroupRepository;
 import daret_digital.com.repository.GroupMembershipRepository;
 import daret_digital.com.repository.PaymentRepository;
+import daret_digital.com.repository.PayoutRepository;
 
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -20,13 +21,16 @@ public class PaymentService {
     private final PaymentRepository paymentRepository;
     private final DaretGroupRepository daretGroupRepository;
     private final GroupMembershipRepository groupMembershipRepository;
+    private final PayoutRepository payoutRepository;
 
     public PaymentService(PaymentRepository paymentRepository,
                           DaretGroupRepository daretGroupRepository,
-                          GroupMembershipRepository groupMembershipRepository) {
+                          GroupMembershipRepository groupMembershipRepository,
+                          PayoutRepository payoutRepository) {
         this.paymentRepository = paymentRepository;
         this.daretGroupRepository = daretGroupRepository;
         this.groupMembershipRepository = groupMembershipRepository;
+        this.payoutRepository = payoutRepository;
     }
 
     // ---------- 1. A member pays their contribution for the current cycle ----------
@@ -65,6 +69,8 @@ public class PaymentService {
 
     // ---------- 3bis. Organizer closes the current turn ----------
     // Call this once the current beneficiary (group.getTourActuel()) has received the money.
+    // Requires both: every member's payment for this cycle VALIDATED, and the payout to
+    // this cycle's beneficiary confirmed as VERSE.
     @Transactional
     public DaretGroup closeTurn(UUID groupId, User currentUser) {
         DaretGroup group = getGroupOrThrow(groupId);
@@ -76,6 +82,13 @@ public class PaymentService {
         if (incompletePayments) {
             throw new IllegalStateException(
                     "All payments for this cycle must be validated before closing the turn.");
+        }
+
+        Payout payout = payoutRepository.findByGroupAndCycle(group, group.getTourActuel()).orElse(null);
+
+        if (payout == null || payout.getStatus() != PayoutStatus.VERSE) {
+            throw new IllegalStateException(
+                    "The payout to this cycle's beneficiary must be confirmed before closing the turn.");
         }
 
         return moveToNextTurn(group);
