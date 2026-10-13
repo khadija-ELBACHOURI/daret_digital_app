@@ -1,32 +1,16 @@
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5432/daret_digital
-    username: daret_user
-    password: daret_pass
+    url: ${SPRING_DATASOURCE_URL}
+    username: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
   jpa:
     hibernate:
       ddl-auto: update
-    show-sql: true
+    show-sql: false
 
 jwt:
-  secret: BVLII1QFcERpgGqWBBqEKTZNqAdzjN24wq9WNodOhxld5umRcXjP3FOzUtAO6Uf/xKGODAF+miVMW/uLQbJGzA==
-  expiration: 86400000
-server:
-  port: 8080
+  secret: ${JWT_SECRET}
+  expiration: ${JWT_EXPIRATION:86400000}
 
-#spring:
-#  datasource:
-#    url: ${SPRING_DATASOURCE_URL}
-#    username: ${SPRING_DATASOURCE_USERNAME}
-#    password: ${SPRING_DATASOURCE_PASSWORD}
-#  jpa:
-#    hibernate:
-#      ddl-auto: update
-#    show-sql: false
-#
-#jwt:
-#  secret: ${JWT_SECRET}
-#  expiration: ${JWT_EXPIRATION:86400000}
-#
-#server:
-#  port: ${PORT:8080}
+server:
+  port: ${PORT:8080}
