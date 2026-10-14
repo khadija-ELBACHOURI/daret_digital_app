@@ -14,3 +14,18 @@ jwt:
 
 server:
   port: ${PORT:8080}
+
+stripe:
+  # sk_test_... from Stripe Dashboard > Developers > API keys (test mode)
+  secret-key: ${STRIPE_SECRET_KEY}
+  # whsec_... printed by `stripe listen` locally, or from the Dashboard webhook endpoint in production
+  webhook-secret: ${STRIPE_WEBHOOK_SECRET}
+  # {groupId} is replaced automatically. Adjust to your real frontend route.
+  # Override per environment with STRIPE_SUCCESS_URL / STRIPE_CANCEL_URL.
+  success-url: http://localhost:3000/dashboard/daret/{groupId}?payment=success
+  cancel-url: http://localhost:3000/dashboard/daret/{groupId}?payment=cancelled
+
+payments:
+  # true: members can still self-declare ("J'ai paye") and the organizer validates.
+  # false: card payment only (use this once Stripe is live).
+  manual-declaration-enabled: ${MANUAL_PAYMENTS_ENABLED:true}
