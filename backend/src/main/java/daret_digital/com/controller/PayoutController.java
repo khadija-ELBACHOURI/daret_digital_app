@@ -51,10 +51,14 @@ public class PayoutController {
         return PayoutDTO.Response.fromEntity(payout);
     }
 
-    // Full payout history for the group
+    // Full payout history for the group (members only)
     @GetMapping("/history")
-    public List<PayoutDTO.Response> getHistory(@PathVariable UUID groupId) {
-        return payoutService.getPayoutHistory(groupId).stream()
+    public List<PayoutDTO.Response> getHistory(
+            @PathVariable UUID groupId,
+            Authentication authentication) {
+
+        User currentUser = resolveCurrentUser(authentication);
+        return payoutService.getPayoutHistory(groupId, currentUser).stream()
                 .map(PayoutDTO.Response::fromEntity)
                 .toList();
     }
