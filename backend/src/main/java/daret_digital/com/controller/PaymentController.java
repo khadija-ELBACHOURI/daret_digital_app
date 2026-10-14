@@ -6,6 +6,7 @@ import daret_digital.com.domain.User;
 import daret_digital.com.dto.PaymentDTO;
 import daret_digital.com.repository.UtilisateurRepository;
 import daret_digital.com.service.PaymentService;
+import daret_digital.com.service.StripeCheckoutService;
 
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -18,10 +19,14 @@ import java.util.UUID;
 public class PaymentController {
 
     private final PaymentService paymentService;
+    private final StripeCheckoutService stripeCheckoutService;
     private final UtilisateurRepository userRepository;
 
-    public PaymentController(PaymentService paymentService, UtilisateurRepository userRepository) {
+    public PaymentController(PaymentService paymentService,
+                             StripeCheckoutService stripeCheckoutService,
+                             UtilisateurRepository userRepository) {
         this.paymentService = paymentService;
+        this.stripeCheckoutService = stripeCheckoutService;
         this.userRepository = userRepository;
     }
 
@@ -30,7 +35,19 @@ public class PaymentController {
                 .orElseThrow(() -> new IllegalStateException("Utilisateur introuvable"));
     }
 
-    // 1. Member declares they paid their contribution for the current cycle
+    // Member starts a card payment: returns the Stripe Checkout URL to redirect to.
+    @PostMapping("/me/checkout")
+    public CheckoutResponse startCheckout(
+            @PathVariable UUID groupId,
+            Authentication authentication) {
+
+        User currentUser = resolveCurrentUser(authentication);
+        String url = stripeCheckoutService.startCheckout(groupId, currentUser);
+        return new CheckoutResponse(url);
+    }
+
+    // Member declares a manual payment (cash / transfer). Disabled when
+    // payments.manual-declaration-enabled=false.
     @PostMapping("/me")
     public PaymentDTO.Response declareMyPayment(
             @PathVariable UUID groupId,
@@ -55,7 +72,7 @@ public class PaymentController {
                 .toList();
     }
 
-    // 3. Organizer validates one member's payment
+    // Organizer validates one manually declared payment
     @PostMapping("/{paymentId}/validate")
     public PaymentDTO.Response validatePayment(
             @PathVariable UUID groupId,
@@ -63,11 +80,11 @@ public class PaymentController {
             Authentication authentication) {
 
         User currentUser = resolveCurrentUser(authentication);
-        Payment payment = paymentService.validatePayment(paymentId, currentUser);
+        Payment payment = paymentService.validatePayment(groupId, paymentId, currentUser);
         return PaymentDTO.Response.fromEntity(payment);
     }
 
-    // 3bis. Organizer closes the current turn and moves to the next member
+    // Organizer closes the current turn and moves to the next member
     @PostMapping("/turn/close")
     public GroupStateResponse closeTurn(
             @PathVariable UUID groupId,
@@ -78,16 +95,20 @@ public class PaymentController {
         return new GroupStateResponse(group.getId(), group.getTourActuel(), group.getStatut().name());
     }
 
-    // List payments for a given cycle (organizer or member view)
+    // List payments for a given cycle (members of the group only)
     @GetMapping
     public List<PaymentDTO.Response> getPaymentsForCycle(
             @PathVariable UUID groupId,
-            @RequestParam Integer cycle) {
+            @RequestParam Integer cycle,
+            Authentication authentication) {
 
-        return paymentService.getPaymentsForCycle(groupId, cycle).stream()
+        User currentUser = resolveCurrentUser(authentication);
+        return paymentService.getPaymentsForCycle(groupId, cycle, currentUser).stream()
                 .map(PaymentDTO.Response::fromEntity)
                 .toList();
     }
 
     public record GroupStateResponse(UUID id, Integer tourActuel, String statut) {}
+
+    public record CheckoutResponse(String url) {}
 }

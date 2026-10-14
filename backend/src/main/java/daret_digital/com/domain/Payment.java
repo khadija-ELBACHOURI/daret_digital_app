@@ -44,6 +44,14 @@ public class Payment {
 
     private String proofUrl;
 
+    // Stripe: the latest Checkout Session created for this payment, and the
+    // PaymentIntent that settled it (filled by the webhook).
+    @Column(name = "stripe_session_id")
+    private String stripeSessionId;
+
+    @Column(name = "stripe_payment_intent_id")
+    private String stripePaymentIntentId;
+
     public Payment() {
     }
 
