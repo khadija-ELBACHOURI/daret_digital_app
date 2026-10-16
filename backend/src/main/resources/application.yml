@@ -22,9 +22,8 @@ stripe:
   webhook-secret: ${STRIPE_WEBHOOK_SECRET}
   # {groupId} is replaced automatically. Adjust to your real frontend route.
   # Override per environment with STRIPE_SUCCESS_URL / STRIPE_CANCEL_URL.
-  success-url: http://localhost:3000/dashboard/daret/{groupId}?payment=success
-  cancel-url: http://localhost:3000/dashboard/daret/{groupId}?payment=cancelled
-
+  success-url: http://localhost:3000/membre/daret/{groupId}?payment=success
+  cancel-url: http://localhost:3000/membre/daret/{groupId}?payment=cancelled
 payments:
   # true: members can still self-declare ("J'ai paye") and the organizer validates.
   # false: card payment only (use this once Stripe is live).
