@@ -68,6 +68,67 @@ public class GroupController {
         return ResponseEntity.ok(GroupResponse.from(group));
     }
 
+    @PutMapping("/{groupId}")
+    @PreAuthorize("@groupSecurity.hasRole(#groupId, authentication.name, 'ORGANISATEUR')")
+    public ResponseEntity<?> updateGroup(@PathVariable UUID groupId,
+                                         @RequestBody UpdateGroupRequest request) {
+        DaretGroup group = groupRepository.findById(groupId)
+                .orElseThrow(() -> new IllegalArgumentException("Groupe introuvable"));
+
+        if (request.nom() == null || request.nom().isBlank()) {
+            return ResponseEntity.badRequest().body("Le nom est obligatoire");
+        }
+
+        Frequence newFrequence;
+        try {
+            newFrequence = Frequence.valueOf(request.frequence().toUpperCase());
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Fréquence invalide");
+        }
+
+        if (request.montant() == null || request.montant().signum() <= 0) {
+            return ResponseEntity.badRequest().body("Le montant doit être positif");
+        }
+        if (request.nombreMembres() == null || request.nombreMembres() < 2) {
+            return ResponseEntity.badRequest().body("Il faut au moins 2 membres");
+        }
+
+        boolean structureChanged =
+                group.getMontant().compareTo(request.montant()) != 0
+                        || group.getFrequence() != newFrequence
+                        || !group.getNombreMembres().equals(request.nombreMembres())
+                        || (group.getDateDebut() == null
+                        ? request.dateDebut() != null
+                        : !group.getDateDebut().equals(request.dateDebut()));
+
+        if (structureChanged && group.getStatut() != DaretGroup.DaretStatus.EN_ATTENTE) {
+            return ResponseEntity.badRequest()
+                    .body("Montant, fréquence, nombre de membres et date de début ne sont modifiables que tant que la daret est en attente");
+        }
+
+        List<GroupMembership> memberships = membershipRepository.findByGroupId(groupId);
+        int maxPosition = memberships.stream()
+                .map(GroupMembership::getPosition)
+                .filter(p -> p != null)
+                .max(Integer::compareTo)
+                .orElse(0);
+
+        if (request.nombreMembres() < memberships.size() || request.nombreMembres() < maxPosition) {
+            return ResponseEntity.badRequest()
+                    .body("Le nombre de places ne peut pas être inférieur au nombre de membres ou aux positions déjà attribuées");
+        }
+
+        group.setNom(request.nom().trim());
+        group.setMontant(request.montant());
+        group.setFrequence(newFrequence);
+        group.setNombreMembres(request.nombreMembres());
+        group.setDateDebut(request.dateDebut());
+        group.setDescription(request.description());
+        groupRepository.save(group);
+
+        return ResponseEntity.ok(GroupResponse.from(group));
+    }
+
     @PostMapping("/{groupId}/members")
     @PreAuthorize("@groupSecurity.hasRole(#groupId, authentication.name, 'ORGANISATEUR')")
     public ResponseEntity<?> addMember(@PathVariable UUID groupId,
@@ -184,6 +245,15 @@ record CreateGroupRequest(
         String description
 ) {}
 
+record UpdateGroupRequest(
+        String nom,
+        BigDecimal montant,
+        String frequence,
+        Integer nombreMembres,
+        LocalDate dateDebut,
+        String description
+) {}
+
 record AddMemberRequest(String email) {}
 record AssignPositionRequest(Integer position) {}
 
@@ -213,4 +283,3 @@ record GroupResponse(
         );
     }
 }
-
