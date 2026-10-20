@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { Wallet, Calendar, Users } from "lucide-react";
+import { Wallet, Calendar, Users, Pencil } from "lucide-react";
 import { useParams, notFound } from "next/navigation";
 import {
   getGroup,
@@ -16,6 +16,7 @@ import { useAuth } from "@/lib/auth-context";
 import { useCallback, useEffect, useState } from "react";
 import AddMemberForm from "@/components/AddMemberForm";
 import PaymentsPanel from "@/components/PaymentsPanel";
+import EditGroupForm from "@/components/EditGroupForm";
 
 const statusLabel: Record<DaretStatus, { label: string; className: string }> = {
   EN_ATTENTE: { label: "En attente", className: "bg-[#2A2410] text-[#E5B800]" },
@@ -31,7 +32,8 @@ export default function DaretDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [savingUserId, setSavingUserId] = useState<string | null>(null);
-  const [savingStatus, setSavingStatus] = useState(false); // moved up, before any early return
+  const [savingStatus, setSavingStatus] = useState(false);
+  const [editing, setEditing] = useState(false); // must stay before any early return
 
   const loadData = useCallback(() => {
     return Promise.all([getGroup(id), getGroupMembers(id)])
@@ -87,6 +89,11 @@ export default function DaretDetailPage() {
     }
   }
 
+  async function handleGroupSaved() {
+    await loadData();
+    setEditing(false);
+  }
+
   return (
     <div className="max-w-4xl">
       <div id="apercu" className="mb-6 flex items-center justify-between">
@@ -97,23 +104,43 @@ export default function DaretDetailPage() {
           </p>
         </div>
 
-        {isOrganisateur ? (
-          <select
-            value={group.statut}
-            onChange={(e) => handleStatusChange(e.target.value)}
-            disabled={savingStatus}
-            className="h-8 rounded-md border border-[#26282C] bg-[#0A0B0D] px-2 text-xs text-gray-300 focus:border-[#00D492] focus:outline-none disabled:opacity-50"
-          >
-            <option value="EN_ATTENTE">En attente</option>
-            <option value="ACTIVE">Active</option>
-            <option value="TERMINEE">Terminée</option>
-          </select>
-        ) : (
-          <span className={`rounded-full px-2 py-0.5 text-xs ${statusLabel[group.statut]?.className ?? ""}`}>
-            {statusLabel[group.statut]?.label ?? group.statut}
-          </span>
-        )}
+        <div className="flex items-center gap-2">
+          {isOrganisateur && !editing && (
+            <button
+              onClick={() => setEditing(true)}
+              className="flex h-8 items-center gap-1.5 rounded-md border border-[#26282C] px-3 text-xs text-gray-300 transition-colors hover:text-white"
+            >
+              <Pencil className="h-3.5 w-3.5" />
+              Modifier
+            </button>
+          )}
+
+          {isOrganisateur ? (
+            <select
+              value={group.statut}
+              onChange={(e) => handleStatusChange(e.target.value)}
+              disabled={savingStatus}
+              className="h-8 rounded-md border border-[#26282C] bg-[#0A0B0D] px-2 text-xs text-gray-300 focus:border-[#00D492] focus:outline-none disabled:opacity-50"
+            >
+              <option value="EN_ATTENTE">En attente</option>
+              <option value="ACTIVE">Active</option>
+              <option value="TERMINEE">Terminée</option>
+            </select>
+          ) : (
+            <span className={`rounded-full px-2 py-0.5 text-xs ${statusLabel[group.statut]?.className ?? ""}`}>
+              {statusLabel[group.statut]?.label ?? group.statut}
+            </span>
+          )}
+        </div>
       </div>
+
+      {isOrganisateur && editing && (
+        <EditGroupForm
+          group={group}
+          onSaved={handleGroupSaved}
+          onCancel={() => setEditing(false)}
+        />
+      )}
 
       <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
         <InfoCard

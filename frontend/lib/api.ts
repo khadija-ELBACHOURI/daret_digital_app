@@ -1,14 +1,14 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const STORAGE_KEY = "daret_auth";
- 
+
 export interface AuthResponse {
   token: string;
   userId: string;
   email: string;
 }
- 
+
 export type DaretStatus = "EN_ATTENTE" | "ACTIVE" | "TERMINEE";
- 
+
 export interface DaretGroup {
   id: string;
   nom: string;
@@ -23,25 +23,38 @@ export interface DaretGroup {
 export interface ApiError {
   message: string;
 }
- 
+
 async function handleResponse<T>(res: Response): Promise<T> {
   if (!res.ok) {
     let message = "Une erreur est survenue. Reessayez.";
-    try {
-      const data = await res.json();
-      message = data.message || data.error || message;
-    } catch {
-      if (res.status === 401) {
-        message = "Session expiree, veuillez vous reconnecter.";
-      } else if (res.status === 403) {
-        message = "Acces refuse pour cette action.";
-      }
+
+    if (res.status === 401) {
+      message = "Session expiree, veuillez vous reconnecter.";
+    } else if (res.status === 403) {
+      message = "Acces refuse pour cette action.";
     }
+
+    try {
+      const text = await res.text();
+      if (text) {
+        try {
+          // JSON error body (Spring default error format or custom)
+          const data = JSON.parse(text);
+          message = data.message || data.error || message;
+        } catch {
+          // Plain text body (ResponseEntity.badRequest().body("..."))
+          message = text;
+        }
+      }
+    } catch {
+      // keep the default message
+    }
+
     throw new Error(message);
   }
   return res.json();
 }
- 
+
 function getToken(): string | null {
   const raw = localStorage.getItem(STORAGE_KEY);
   if (!raw) return null;
@@ -52,7 +65,7 @@ function getToken(): string | null {
     return null;
   }
 }
- 
+
 export async function registerUser(payload: {
   nom: string;
   email: string;
@@ -65,7 +78,7 @@ export async function registerUser(payload: {
   });
   return handleResponse<AuthResponse>(res);
 }
- 
+
 export async function loginUser(payload: {
   email: string;
   motDePasse: string;
@@ -77,7 +90,7 @@ export async function loginUser(payload: {
   });
   return handleResponse<AuthResponse>(res);
 }
- 
+
 export async function createDaret(payload: {
   nom: string;
   montant: number;
@@ -87,7 +100,7 @@ export async function createDaret(payload: {
   description?: string;
 }): Promise<DaretGroup> {
   const token = getToken();
- 
+
   const res = await fetch(`${API_URL}/api/groups`, {
     method: "POST",
     headers: {
@@ -96,10 +109,10 @@ export async function createDaret(payload: {
     },
     body: JSON.stringify(payload),
   });
- 
+
   return handleResponse<DaretGroup>(res);
 }
- 
+
 export async function getGroup(groupId: string): Promise<DaretGroup> {
   const token = getToken();
   const res = await fetch(`${API_URL}/api/groups/${groupId}`, {
@@ -107,7 +120,34 @@ export async function getGroup(groupId: string): Promise<DaretGroup> {
   });
   return handleResponse<DaretGroup>(res);
 }
- 
+
+export type UpdateGroupPayload = {
+  nom: string;
+  montant: number;
+  frequence: string;
+  nombreMembres: number;
+  dateDebut: string; // "YYYY-MM-DD"
+  description: string;
+};
+
+export async function updateGroup(
+  groupId: string,
+  payload: UpdateGroupPayload
+): Promise<DaretGroup> {
+  const token = getToken();
+
+  const res = await fetch(`${API_URL}/api/groups/${groupId}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  return handleResponse<DaretGroup>(res);
+}
+
 export interface MyGroupResponse {
   id: string;
   nom: string;
@@ -120,17 +160,17 @@ export interface MyGroupResponse {
   position: number | null;
   role: "ORGANISATEUR" | "MEMBRE";
 }
- 
+
 export async function getMyGroups(): Promise<MyGroupResponse[]> {
   const token = getToken();
- 
+
   const res = await fetch(`${API_URL}/api/groups/mine`, {
     headers: { Authorization: `Bearer ${token}` },
   });
- 
+
   return handleResponse<MyGroupResponse[]>(res);
 }
- 
+
 export interface MemberResponse {
   userId: string;
   firstname: string;
@@ -139,7 +179,7 @@ export interface MemberResponse {
   role: "ORGANISATEUR" | "MEMBRE";
   position: number | null;
 }
- 
+
 export async function getGroupMembers(groupId: string): Promise<MemberResponse[]> {
   const token = getToken();
   const res = await fetch(`${API_URL}/api/groups/${groupId}/members`, {
@@ -147,10 +187,10 @@ export async function getGroupMembers(groupId: string): Promise<MemberResponse[]
   });
   return handleResponse<MemberResponse[]>(res);
 }
- 
+
 export async function addMember(groupId: string, email: string): Promise<void> {
   const token = getToken();
- 
+
   const res = await fetch(`${API_URL}/api/groups/${groupId}/members`, {
     method: "POST",
     headers: {
@@ -159,20 +199,20 @@ export async function addMember(groupId: string, email: string): Promise<void> {
     },
     body: JSON.stringify({ email }),
   });
- 
+
   if (!res.ok) {
     const err = await res.json().catch(() => null);
     throw new Error(err?.message ?? "Erreur lors de l'ajout du membre");
   }
 }
- 
+
 export async function assignPosition(
   groupId: string,
   userId: string,
   position: number
 ): Promise<MemberResponse> {
   const token = getToken();
- 
+
   const res = await fetch(`${API_URL}/api/groups/${groupId}/members/${userId}/position`, {
     method: "PATCH",
     headers: {
@@ -181,16 +221,16 @@ export async function assignPosition(
     },
     body: JSON.stringify({ position }),
   });
- 
+
   return handleResponse<MemberResponse>(res);
 }
- 
+
 export async function updateGroupStatus(
   groupId: string,
   statut: DaretStatus
 ): Promise<DaretGroup> {
   const token = getToken();
- 
+
   const res = await fetch(`${API_URL}/api/groups/${groupId}/status`, {
     method: "PATCH",
     headers: {
@@ -199,14 +239,14 @@ export async function updateGroupStatus(
     },
     body: JSON.stringify({ statut }),
   });
- 
+
   return handleResponse<DaretGroup>(res);
 }
- 
+
 // ---------- Payments ----------
- 
+
 export type PaymentStatus = "PENDING" | "PAID" | "VALIDATED" | "LATE";
- 
+
 export interface PaymentResponse {
   id: string;
   groupId: string;
@@ -217,7 +257,7 @@ export interface PaymentResponse {
   status: PaymentStatus;
   paidAt: string | null;
 }
- 
+
 export async function getPaymentsForCycle(
   groupId: string,
   cycle: number
@@ -228,7 +268,7 @@ export async function getPaymentsForCycle(
   });
   return handleResponse<PaymentResponse[]>(res);
 }
- 
+
 // Manual declaration (cash / transfer). Rejected by the backend when
 // payments.manual-declaration-enabled=false.
 export async function declareMyPayment(
@@ -246,7 +286,7 @@ export async function declareMyPayment(
   });
   return handleResponse<PaymentResponse>(res);
 }
- 
+
 // Starts a Stripe Checkout session and returns the hosted page URL.
 export async function createCheckout(groupId: string): Promise<{ url: string }> {
   const token = getToken();
@@ -256,7 +296,7 @@ export async function createCheckout(groupId: string): Promise<{ url: string }> 
   });
   return handleResponse<{ url: string }>(res);
 }
- 
+
 export async function validatePayment(
   groupId: string,
   paymentId: string
@@ -268,13 +308,13 @@ export async function validatePayment(
   });
   return handleResponse<PaymentResponse>(res);
 }
- 
+
 export interface GroupTurnState {
   id: string;
   tourActuel: number;
   statut: DaretStatus;
 }
- 
+
 export async function closeTurn(groupId: string): Promise<GroupTurnState> {
   const token = getToken();
   const res = await fetch(`${API_URL}/api/groups/${groupId}/payments/turn/close`, {
@@ -283,7 +323,7 @@ export async function closeTurn(groupId: string): Promise<GroupTurnState> {
   });
   return handleResponse<GroupTurnState>(res);
 }
- 
+
 export async function generatePayments(groupId: string): Promise<PaymentResponse[]> {
   const token = getToken();
   const res = await fetch(`${API_URL}/api/groups/${groupId}/payments/generate`, {
@@ -292,11 +332,11 @@ export async function generatePayments(groupId: string): Promise<PaymentResponse
   });
   return handleResponse<PaymentResponse[]>(res);
 }
- 
+
 // ---------- Payouts ----------
- 
+
 export type PayoutStatus = "EN_ATTENTE" | "VERSE";
- 
+
 export interface PayoutResponse {
   id: string;
   groupId: string;
@@ -307,7 +347,7 @@ export interface PayoutResponse {
   status: PayoutStatus;
   paidAt: string | null;
 }
- 
+
 export async function getCurrentPayout(groupId: string): Promise<PayoutResponse> {
   const token = getToken();
   const res = await fetch(`${API_URL}/api/groups/${groupId}/payouts/current`, {
@@ -315,7 +355,7 @@ export async function getCurrentPayout(groupId: string): Promise<PayoutResponse>
   });
   return handleResponse<PayoutResponse>(res);
 }
- 
+
 export async function confirmCurrentPayout(groupId: string): Promise<PayoutResponse> {
   const token = getToken();
   const res = await fetch(`${API_URL}/api/groups/${groupId}/payouts/current/confirm`, {
@@ -324,7 +364,7 @@ export async function confirmCurrentPayout(groupId: string): Promise<PayoutRespo
   });
   return handleResponse<PayoutResponse>(res);
 }
- 
+
 export async function getPayoutHistory(groupId: string): Promise<PayoutResponse[]> {
   const token = getToken();
   const res = await fetch(`${API_URL}/api/groups/${groupId}/payouts/history`, {
@@ -332,4 +372,3 @@ export async function getPayoutHistory(groupId: string): Promise<PayoutResponse[
   });
   return handleResponse<PayoutResponse[]>(res);
 }
- 
