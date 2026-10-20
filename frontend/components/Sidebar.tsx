@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import {useRouter} from "next/navigation"
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
@@ -14,6 +15,7 @@ import {
   Wallet,
   Calendar,
   Shield,
+  LogOut,
 } from "lucide-react";
 import { getMyGroups, type MyGroupResponse } from "@/lib/api";
 
@@ -35,7 +37,12 @@ export default function Sidebar() {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [groups, setGroups] = useState<MyGroupResponse[]>([]);
+  const router = useRouter();
 
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    router.push("/login");
+  };
   useEffect(() => {
     getMyGroups()
       .then(setGroups)
@@ -73,6 +80,13 @@ export default function Sidebar() {
             </Link>
           );
         })}
+        <button
+          onClick={handleLogout}
+          className="mt-auto flex h-9 w-9 items-center justify-center rounded-md text-gray-400 transition-colors hover:text-red-400"
+          aria-label="Se déconnecter"
+        >
+          <LogOut className="h-4 w-4" />
+        </button>
       </div>
     );
   }
@@ -152,6 +166,13 @@ export default function Sidebar() {
       )}
 
       <div className="mt-auto border-t border-[#1F2023] px-3 py-3">
+        <button
+          onClick={handleLogout}
+          className="mb-1 flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-gray-400 transition-colors hover:bg-[#141517] hover:text-red-400"
+        >
+          <LogOut className="h-4 w-4" />
+          Déconnexion
+        </button>
         <button
           onClick={() => setCollapsed(true)}
           className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-gray-500 transition-colors hover:bg-[#141517] hover:text-white"
