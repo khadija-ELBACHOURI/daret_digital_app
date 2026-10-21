@@ -43,4 +43,8 @@ public class DaretGroup {
 
     private Integer tourActuel = 0;
 
+    @Column(name = "invite_code", unique = true, length = 16)
+    private String inviteCode;
+
+
 }
