@@ -2,26 +2,58 @@
 
 import type { FormEvent } from "react";
 import { useState } from "react";
-import { Search, Users, Wallet } from "lucide-react";
-import { mockDarets, type Daret } from "@/lib/mock-data";
+import { Loader2, Search, Users, Wallet } from "lucide-react";
+import { getInvitePreview, joinByInvite, type InvitePreview } from "@/lib/api";
 
 const inputClass =
   "w-full rounded-md border border-[#26282C] bg-[#101113] px-3 py-2 text-sm text-white placeholder-gray-600 outline-none transition-colors focus:border-[#00D492]";
 
 export default function RejoindreDaretPage() {
   const [code, setCode] = useState("");
-  const [found, setFound] = useState<Daret | null>(null);
-  const [searched, setSearched] = useState(false);
+  const [found, setFound] = useState<InvitePreview | null>(null);
+  const [searching, setSearching] = useState(false);
+  const [joining, setJoining] = useState(false);
   const [joined, setJoined] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  function handleSearch(e: FormEvent) {
+  async function handleSearch(e: FormEvent) {
     e.preventDefault();
-    setSearched(true);
+    const trimmed = code.trim();
+    if (!trimmed) return;
+
+    setSearching(true);
+    setError(null);
+    setFound(null);
     setJoined(false);
-    // Mock : n'importe quel code non vide renvoie une daret d'exemple.
-    // TODO: remplacer par un appel réel à lib/api.ts (GET /darets/invite/:code)
-    setFound(code.trim() ? mockDarets[1] : null);
+
+    try {
+      setFound(await getInvitePreview(trimmed));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Une erreur est survenue. Reessayez.");
+    } finally {
+      setSearching(false);
+    }
   }
+
+  async function handleJoin() {
+    if (!found) return;
+
+    setJoining(true);
+    setError(null);
+
+    try {
+      await joinByInvite(code);
+      setJoined(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Une erreur est survenue. Reessayez.");
+    } finally {
+      setJoining(false);
+    }
+  }
+
+  const isFull = found ? found.membresActuels >= found.nombreMembres : false;
+  const isClosed = found ? found.statut !== "EN_ATTENTE" : false;
+  const canJoin = !isFull && !isClosed;
 
   return (
     <div className="max-w-lg">
@@ -29,37 +61,50 @@ export default function RejoindreDaretPage() {
       <p className="mb-6 text-sm text-gray-400">Entrez le code d'invitation partagé par l'organisateur.</p>
 
       <form onSubmit={handleSearch} className="mb-6 flex gap-2">
-        <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="Ex. DARET-8F2K1" className={inputClass} />
+        <input
+          value={code}
+          onChange={(e) => setCode(e.target.value)}
+          placeholder="Ex. DARET-8F2K1"
+          className={inputClass}
+        />
         <button
           type="submit"
-          className="flex items-center gap-2 whitespace-nowrap rounded-md bg-[#00D492] px-4 py-2 text-sm font-medium text-black transition-colors hover:bg-[#00c184]"
+          disabled={searching || !code.trim()}
+          className="flex items-center gap-2 whitespace-nowrap rounded-md bg-[#00D492] px-4 py-2 text-sm font-medium text-black transition-colors hover:bg-[#00c184] disabled:cursor-not-allowed disabled:opacity-50"
         >
-          <Search className="h-4 w-4" />
+          {searching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
           Rechercher
         </button>
       </form>
 
-      {searched && !found && (
-        <p className="text-sm text-gray-500">Aucune daret trouvée pour ce code. Vérifiez le code et réessayez.</p>
-      )}
+      {error && <p className="mb-4 text-sm text-red-400">{error}</p>}
 
       {found && !joined && (
         <div className="rounded-lg border border-[#1F2023] bg-[#101113] p-5">
-          <h2 className="mb-3 text-lg font-medium text-white">{found.name}</h2>
+          <h2 className="mb-3 text-lg font-medium text-white">{found.nom}</h2>
           <div className="mb-4 space-y-2 text-sm text-gray-400">
             <div className="flex items-center gap-2">
               <Wallet className="h-4 w-4" />
-              {found.amount.toLocaleString("fr-FR")} MAD · {found.frequency}
+              {found.montant.toLocaleString("fr-FR")} MAD · {found.frequence.toLowerCase()}
             </div>
             <div className="flex items-center gap-2">
               <Users className="h-4 w-4" />
-              {found.members.length} membres · {found.totalTurns} tours
+              {found.membresActuels}/{found.nombreMembres} membres · {found.nombreMembres} tours
             </div>
           </div>
+
+          {!canJoin && (
+            <p className="mb-3 text-sm text-amber-400">
+              {isFull ? "Cette daret est complète." : "Cette daret n'accepte plus de nouveaux membres."}
+            </p>
+          )}
+
           <button
-            onClick={() => setJoined(true)}
-            className="w-full rounded-md bg-[#00D492] px-4 py-2.5 text-sm font-medium text-black transition-colors hover:bg-[#00c184]"
+            onClick={handleJoin}
+            disabled={joining || !canJoin}
+            className="flex w-full items-center justify-center gap-2 rounded-md bg-[#00D492] px-4 py-2.5 text-sm font-medium text-black transition-colors hover:bg-[#00c184] disabled:cursor-not-allowed disabled:opacity-50"
           >
+            {joining && <Loader2 className="h-4 w-4 animate-spin" />}
             Rejoindre cette daret
           </button>
         </div>
@@ -67,7 +112,7 @@ export default function RejoindreDaretPage() {
 
       {joined && found && (
         <div className="rounded-lg border border-[#1F2023] bg-[#0F1A15] p-5 text-sm text-[#00D492]">
-          Vous avez rejoint {found.name}. Elle apparaît maintenant dans "Mes daret".
+          Vous avez rejoint {found.nom}. Elle apparaît maintenant dans "Mes daret".
         </div>
       )}
     </div>
