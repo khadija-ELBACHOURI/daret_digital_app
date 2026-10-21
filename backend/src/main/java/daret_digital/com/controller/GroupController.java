@@ -14,6 +14,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
@@ -143,6 +144,26 @@ public class GroupController {
 
         return ResponseEntity.ok(GroupResponse.from(group));
     }
+
+    @DeleteMapping("/{groupId}")
+    @PreAuthorize("@groupSecurity.hasRole(#groupId, authentication.name, 'ORGANISATEUR')")
+    @Transactional
+    public ResponseEntity<?> deleteGroup(@PathVariable UUID groupId) {
+        DaretGroup group = groupRepository.findById(groupId).orElse(null);
+        if (group == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Groupe introuvable");
+        }
+        if (group.getStatut() != DaretGroup.DaretStatus.EN_ATTENTE) {
+            return ResponseEntity.badRequest()
+                    .body("Seule une daret en attente peut être supprimée");
+        }
+
+        membershipRepository.deleteAll(membershipRepository.findByGroupId(groupId));
+        groupRepository.delete(group);
+
+        return ResponseEntity.noContent().build();
+    }
+
     @GetMapping("/invite/{code}")
     public ResponseEntity<?> previewInvite(@PathVariable String code) {
         DaretGroup group = groupRepository.findByInviteCode(code.trim().toUpperCase()).orElse(null);
@@ -236,12 +257,28 @@ public class GroupController {
     @DeleteMapping("/{groupId}/members/{userId}")
     @PreAuthorize("@groupSecurity.hasRole(#groupId, authentication.name, 'ORGANISATEUR')")
     public ResponseEntity<?> removeMember(@PathVariable UUID groupId, @PathVariable UUID userId) {
-        List<GroupMembership> members = membershipRepository.findByGroupId(groupId);
-        members.stream()
+        DaretGroup group = groupRepository.findById(groupId).orElse(null);
+        if (group == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Groupe introuvable");
+        }
+        if (group.getStatut() != DaretGroup.DaretStatus.EN_ATTENTE) {
+            return ResponseEntity.badRequest()
+                    .body("Les membres ne peuvent être retirés que tant que la daret est en attente");
+        }
+
+        GroupMembership target = membershipRepository.findByGroupId(groupId).stream()
                 .filter(m -> m.getUser().getId().equals(userId))
                 .findFirst()
-                .ifPresent(membershipRepository::delete);
-        return ResponseEntity.ok().build();
+                .orElse(null);
+        if (target == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Membre introuvable dans ce groupe");
+        }
+        if (target.getRole() == GroupRole.ORGANISATEUR) {
+            return ResponseEntity.badRequest().body("L'organisateur ne peut pas être retiré");
+        }
+
+        membershipRepository.delete(target);
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/mine")
