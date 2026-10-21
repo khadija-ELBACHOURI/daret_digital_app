@@ -399,3 +399,25 @@ export async function joinByInvite(code: string): Promise<DaretGroup> {
   );
   return handleResponse<DaretGroup>(res);
 }
+
+export async function deleteGroup(groupId: string): Promise<void> {
+  const token = getToken();
+  const res = await fetch(`${API_URL}/api/groups/${groupId}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    await handleResponse<never>(res); // lève l'erreur avec le message du backend
+  }
+}
+
+export async function removeMember(groupId: string, userId: string): Promise<void> {
+  const token = getToken();
+  const res = await fetch(`${API_URL}/api/groups/${groupId}/members/${userId}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    await handleResponse<never>(res); // throws with the backend message
+  }
+}
