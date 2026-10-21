@@ -19,11 +19,20 @@ export interface DaretGroup {
   description?: string;
   statut: DaretStatus;
   tourActuel: number;
+  inviteCode ?: string;
 }
 export interface ApiError {
   message: string;
 }
-
+export interface InvitePreview {
+  id: string;
+  nom: string;
+  montant: number;
+  frequence: string;
+  nombreMembres: number;
+  membresActuels: number;
+  statut: DaretStatus;
+}
 async function handleResponse<T>(res: Response): Promise<T> {
   if (!res.ok) {
     let message = "Une erreur est survenue. Reessayez.";
@@ -371,4 +380,22 @@ export async function getPayoutHistory(groupId: string): Promise<PayoutResponse[
     headers: { Authorization: `Bearer ${token}` },
   });
   return handleResponse<PayoutResponse[]>(res);
+}
+
+export async function getInvitePreview(code: string): Promise<InvitePreview> {
+  const token = getToken();
+  const res = await fetch(
+    `${API_URL}/api/groups/invite/${encodeURIComponent(code.trim().toUpperCase())}`,
+    { headers: { Authorization: `Bearer ${token}` } }
+  );
+  return handleResponse<InvitePreview>(res);
+}
+
+export async function joinByInvite(code: string): Promise<DaretGroup> {
+  const token = getToken();
+  const res = await fetch(
+    `${API_URL}/api/groups/invite/${encodeURIComponent(code.trim().toUpperCase())}/join`,
+    { method: "POST", headers: { Authorization: `Bearer ${token}` } }
+  );
+  return handleResponse<DaretGroup>(res);
 }
