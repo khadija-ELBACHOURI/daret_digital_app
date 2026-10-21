@@ -1,13 +1,15 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { Wallet, Calendar, Users, Pencil, Copy, Check } from "lucide-react";
-import { useParams, notFound } from "next/navigation";
+import { Wallet, Calendar, Users, Pencil, Copy, Check, Trash2, UserMinus } from "lucide-react";
+import { useParams, useRouter, notFound } from "next/navigation";
 import {
   getGroup,
   getGroupMembers,
   assignPosition,
   updateGroupStatus,
+  deleteGroup,
+  removeMember,
   DaretGroup,
   DaretStatus,
   MemberResponse,
@@ -26,6 +28,7 @@ const statusLabel: Record<DaretStatus, { label: string; className: string }> = {
 
 export default function DaretDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const router = useRouter();
   const { userId } = useAuth();
   const [group, setGroup] = useState<DaretGroup | null>(null);
   const [members, setMembers] = useState<MemberResponse[]>([]);
@@ -35,6 +38,12 @@ export default function DaretDetailPage() {
   const [savingStatus, setSavingStatus] = useState(false);
   const [editing, setEditing] = useState(false); // must stay before any early return
   const [copied, setCopied] = useState(false); // must stay before any early return
+  const [confirmingDelete, setConfirmingDelete] = useState(false); // must stay before any early return
+  const [deleting, setDeleting] = useState(false); // must stay before any early return
+  const [deleteError, setDeleteError] = useState<string | null>(null); // must stay before any early return
+  const [memberToRemove, setMemberToRemove] = useState<string | null>(null); // must stay before any early return
+  const [removing, setRemoving] = useState(false); // must stay before any early return
+  const [memberError, setMemberError] = useState<string | null>(null); // must stay before any early return
 
   const loadData = useCallback(() => {
     return Promise.all([getGroup(id), getGroupMembers(id)])
@@ -65,8 +74,11 @@ export default function DaretDetailPage() {
 
   const canInvite =
     !!group.inviteCode &&
-    group.statut === "EN_ATTENTE" &&
+    group.statut !== "TERMINEE" &&
     members.length < group.nombreMembres;
+
+  const canDelete = isOrganisateur && group.statut === "EN_ATTENTE";
+  const canRemoveMembers = isOrganisateur && group.statut === "EN_ATTENTE";
 
   async function handleCopyCode() {
     if (!group?.inviteCode) return;
@@ -111,6 +123,32 @@ export default function DaretDetailPage() {
     setEditing(false);
   }
 
+  async function handleDelete() {
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await deleteGroup(id);
+      router.push("/darets"); // adaptez à la route de votre liste "Mes daret"
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : "Suppression impossible. Reessayez.");
+      setDeleting(false);
+    }
+  }
+
+  async function handleRemoveMember(memberUserId: string) {
+    setRemoving(true);
+    setMemberError(null);
+    try {
+      await removeMember(id, memberUserId);
+      setMemberToRemove(null);
+      await loadData();
+    } catch (err) {
+      setMemberError(err instanceof Error ? err.message : "Retrait impossible. Reessayez.");
+    } finally {
+      setRemoving(false);
+    }
+  }
+
   return (
     <div className="max-w-4xl">
       <div id="apercu" className="mb-6 flex items-center justify-between">
@@ -132,6 +170,16 @@ export default function DaretDetailPage() {
             </button>
           )}
 
+          {canDelete && !confirmingDelete && (
+            <button
+              onClick={() => setConfirmingDelete(true)}
+              className="flex h-8 items-center gap-1.5 rounded-md border border-[#3A1F1F] px-3 text-xs text-red-400 transition-colors hover:bg-[#2A1414]"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              Supprimer
+            </button>
+          )}
+
           {isOrganisateur ? (
             <select
               value={group.statut}
@@ -150,6 +198,37 @@ export default function DaretDetailPage() {
           )}
         </div>
       </div>
+
+      {canDelete && confirmingDelete && (
+        <div className="mb-6 rounded-lg border border-[#3A1F1F] bg-[#1A1010] p-4">
+          <p className="mb-1 text-sm font-medium text-white">Supprimer cette daret ?</p>
+          <p className="mb-3 text-xs text-gray-400">
+            Cette action est définitive. Tous les membres seront retirés du groupe et le code d'invitation ne
+            fonctionnera plus.
+          </p>
+          {deleteError && <p className="mb-3 text-xs text-red-400">{deleteError}</p>}
+          <div className="flex gap-2">
+            <button
+              onClick={handleDelete}
+              disabled={deleting}
+              className="flex h-8 items-center gap-1.5 rounded-md bg-red-500 px-3 text-xs font-medium text-white transition-colors hover:bg-red-600 disabled:opacity-50"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              {deleting ? "Suppression..." : "Oui, supprimer"}
+            </button>
+            <button
+              onClick={() => {
+                setConfirmingDelete(false);
+                setDeleteError(null);
+              }}
+              disabled={deleting}
+              className="h-8 rounded-md border border-[#26282C] px-3 text-xs text-gray-300 transition-colors hover:text-white disabled:opacity-50"
+            >
+              Annuler
+            </button>
+          </div>
+        </div>
+      )}
 
       {isOrganisateur && editing && (
         <EditGroupForm
@@ -223,50 +302,93 @@ export default function DaretDetailPage() {
           </div>
         )}
 
+        {memberError && <p className="mb-3 text-sm text-red-400">{memberError}</p>}
+
         <div className="rounded-lg border border-[#1F2023] bg-[#101113]">
-          {sortedMembers.map((m, i) => (
-            <div
-              key={m.userId}
-              className={`flex items-center justify-between px-4 py-3 text-sm ${
-                i !== sortedMembers.length - 1 ? "border-b border-[#1F2023]" : ""
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                {isOrganisateur ? (
-                  <select
-                    value={m.position ?? ""}
-                    onChange={(e) => handlePositionChange(m.userId, e.target.value)}
-                    disabled={savingUserId === m.userId}
-                    className="h-7 w-14 rounded-md border border-[#26282C] bg-[#0A0B0D] text-center text-xs text-gray-300 focus:border-[#00D492] focus:outline-none disabled:opacity-50"
-                  >
-                    <option value="">–</option>
-                    {Array.from({ length: group.nombreMembres }, (_, idx) => idx + 1).map((pos) => (
-                      <option
-                        key={pos}
-                        value={pos}
-                        disabled={takenPositions.has(pos) && pos !== m.position}
-                      >
-                        {pos}
-                      </option>
-                    ))}
-                  </select>
-                ) : (
-                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#1F2023] text-xs text-gray-300">
-                    {m.position ?? "–"}
-                  </div>
-                )}
-                <span className="text-gray-300">
-                  {m.firstname} {m.lastname}
-                </span>
-                {m.role === "ORGANISATEUR" && (
-                  <span className="rounded-full bg-[#16241D] px-2 py-0.5 text-xs text-[#00D492]">
-                    Organisateur
+          {sortedMembers.map((m, i) => {
+            const canRemoveThis = canRemoveMembers && m.role !== "ORGANISATEUR";
+            const confirmingThis = memberToRemove === m.userId;
+
+            return (
+              <div
+                key={m.userId}
+                className={`flex items-center justify-between gap-3 px-4 py-3 text-sm ${
+                  i !== sortedMembers.length - 1 ? "border-b border-[#1F2023]" : ""
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  {isOrganisateur ? (
+                    <select
+                      value={m.position ?? ""}
+                      onChange={(e) => handlePositionChange(m.userId, e.target.value)}
+                      disabled={savingUserId === m.userId}
+                      className="h-7 w-14 rounded-md border border-[#26282C] bg-[#0A0B0D] text-center text-xs text-gray-300 focus:border-[#00D492] focus:outline-none disabled:opacity-50"
+                    >
+                      <option value="">–</option>
+                      {Array.from({ length: group.nombreMembres }, (_, idx) => idx + 1).map((pos) => (
+                        <option
+                          key={pos}
+                          value={pos}
+                          disabled={takenPositions.has(pos) && pos !== m.position}
+                        >
+                          {pos}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#1F2023] text-xs text-gray-300">
+                      {m.position ?? "–"}
+                    </div>
+                  )}
+                  <span className="text-gray-300">
+                    {m.firstname} {m.lastname}
                   </span>
-                )}
+                  {m.role === "ORGANISATEUR" && (
+                    <span className="rounded-full bg-[#16241D] px-2 py-0.5 text-xs text-[#00D492]">
+                      Organisateur
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-3">
+                  {!confirmingThis && <span className="text-xs text-gray-500">{m.email}</span>}
+
+                  {canRemoveThis && !confirmingThis && (
+                    <button
+                      onClick={() => {
+                        setMemberError(null);
+                        setMemberToRemove(m.userId);
+                      }}
+                      title="Retirer ce membre"
+                      className="flex h-7 w-7 items-center justify-center rounded-md border border-[#26282C] text-gray-400 transition-colors hover:border-[#3A1F1F] hover:text-red-400"
+                    >
+                      <UserMinus className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+
+                  {canRemoveThis && confirmingThis && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-400">Retirer ce membre ?</span>
+                      <button
+                        onClick={() => handleRemoveMember(m.userId)}
+                        disabled={removing}
+                        className="h-7 rounded-md bg-red-500 px-2.5 text-xs font-medium text-white transition-colors hover:bg-red-600 disabled:opacity-50"
+                      >
+                        {removing ? "..." : "Oui"}
+                      </button>
+                      <button
+                        onClick={() => setMemberToRemove(null)}
+                        disabled={removing}
+                        className="h-7 rounded-md border border-[#26282C] px-2.5 text-xs text-gray-300 transition-colors hover:text-white disabled:opacity-50"
+                      >
+                        Non
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
-              <span className="text-xs text-gray-500">{m.email}</span>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
