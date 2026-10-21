@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { Wallet, Calendar, Users, Pencil } from "lucide-react";
+import { Wallet, Calendar, Users, Pencil, Copy, Check } from "lucide-react";
 import { useParams, notFound } from "next/navigation";
 import {
   getGroup,
@@ -34,6 +34,7 @@ export default function DaretDetailPage() {
   const [savingUserId, setSavingUserId] = useState<string | null>(null);
   const [savingStatus, setSavingStatus] = useState(false);
   const [editing, setEditing] = useState(false); // must stay before any early return
+  const [copied, setCopied] = useState(false); // must stay before any early return
 
   const loadData = useCallback(() => {
     return Promise.all([getGroup(id), getGroupMembers(id)])
@@ -61,6 +62,22 @@ export default function DaretDetailPage() {
   const takenPositions = new Set(
     members.filter((m) => m.position != null).map((m) => m.position)
   );
+
+  const canInvite =
+    !!group.inviteCode &&
+    group.statut === "EN_ATTENTE" &&
+    members.length < group.nombreMembres;
+
+  async function handleCopyCode() {
+    if (!group?.inviteCode) return;
+    try {
+      await navigator.clipboard.writeText(group.inviteCode);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // clipboard indisponible (http, permissions): l'utilisateur peut copier à la main
+    }
+  }
 
   async function handlePositionChange(memberUserId: string, value: string) {
     const position = value === "" ? null : Number(value);
@@ -140,6 +157,33 @@ export default function DaretDetailPage() {
           onSaved={handleGroupSaved}
           onCancel={() => setEditing(false)}
         />
+      )}
+
+      {canInvite && (
+        <div className="mb-6 flex items-center justify-between gap-4 rounded-lg border border-[#1F2023] bg-[#101113] p-4">
+          <div>
+            <p className="mb-1 text-xs uppercase tracking-wide text-gray-500">
+              Code d'invitation
+            </p>
+            <p className="font-mono text-lg font-semibold tracking-wider text-white">
+              {group.inviteCode}
+            </p>
+            <p className="mt-1 text-xs text-gray-500">
+              Partagez ce code pour inviter des personnes à rejoindre la daret.
+            </p>
+          </div>
+          <button
+            onClick={handleCopyCode}
+            className="flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-[#26282C] px-3 text-xs text-gray-300 transition-colors hover:text-white"
+          >
+            {copied ? (
+              <Check className="h-3.5 w-3.5 text-[#00D492]" />
+            ) : (
+              <Copy className="h-3.5 w-3.5" />
+            )}
+            {copied ? "Copié" : "Copier"}
+          </button>
+        </div>
       )}
 
       <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
