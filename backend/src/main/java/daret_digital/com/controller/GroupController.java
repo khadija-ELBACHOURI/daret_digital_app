@@ -10,12 +10,14 @@ import daret_digital.com.dto.MyGroupResponse;
 import daret_digital.com.repository.DaretGroupRepository;
 import daret_digital.com.repository.GroupMembershipRepository;
 import daret_digital.com.repository.UtilisateurRepository;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
+import java.security.SecureRandom;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
@@ -27,7 +29,19 @@ public class GroupController {
     private final DaretGroupRepository groupRepository;
     private final GroupMembershipRepository membershipRepository;
     private final UtilisateurRepository userRepository;
-
+    private static final String CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ123456789";
+    private static final SecureRandom RANDOM = new SecureRandom();
+    private String generateInviteCode() {
+        String code;
+        do {
+            StringBuilder sb = new StringBuilder("DARET-");
+            for (int i = 0; i < 5; i++) {
+                sb.append(CODE_CHARS.charAt(RANDOM.nextInt(CODE_CHARS.length())));
+            }
+            code = sb.toString();
+        } while (groupRepository.existsByInviteCode(code));
+        return code;
+    }
     public GroupController(DaretGroupRepository groupRepository,
                            GroupMembershipRepository membershipRepository,
                            UtilisateurRepository userRepository) {
@@ -49,6 +63,7 @@ public class GroupController {
         group.setNombreMembres(request.nombreMembres());
         group.setDateDebut(request.dateDebut());
         group.setDescription(request.description());
+        group.setInviteCode(generateInviteCode());
         groupRepository.save(group);
 
         GroupMembership membership = new GroupMembership();
@@ -125,6 +140,53 @@ public class GroupController {
         group.setDateDebut(request.dateDebut());
         group.setDescription(request.description());
         groupRepository.save(group);
+
+        return ResponseEntity.ok(GroupResponse.from(group));
+    }
+    @GetMapping("/invite/{code}")
+    public ResponseEntity<?> previewInvite(@PathVariable String code) {
+        DaretGroup group = groupRepository.findByInviteCode(code.trim().toUpperCase()).orElse(null);
+        if (group == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Aucune daret trouvée pour ce code");
+        }
+        int current = membershipRepository.findByGroupId(group.getId()).size();
+        return ResponseEntity.ok(new InvitePreviewResponse(
+                group.getId(),
+                group.getNom(),
+                group.getMontant(),
+                group.getFrequence() != null ? group.getFrequence().name() : null,
+                group.getNombreMembres(),
+                current,
+                group.getStatut()
+        ));
+    }
+
+    @PostMapping("/invite/{code}/join")
+    public ResponseEntity<?> joinByInvite(@PathVariable String code, Authentication authentication) {
+        DaretGroup group = groupRepository.findByInviteCode(code.trim().toUpperCase()).orElse(null);
+        if (group == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Aucune daret trouvée pour ce code");
+        }
+        if (group.getStatut() != DaretGroup.DaretStatus.EN_ATTENTE) {
+            return ResponseEntity.badRequest().body("Cette daret n'accepte plus de nouveaux membres");
+        }
+
+        String email = authentication.getName();
+        if (membershipRepository.findByGroupIdAndUserEmail(group.getId(), email).isPresent()) {
+            return ResponseEntity.badRequest().body("Vous êtes déjà membre de cette daret");
+        }
+        if (membershipRepository.findByGroupId(group.getId()).size() >= group.getNombreMembres()) {
+            return ResponseEntity.badRequest().body("Cette daret est complète");
+        }
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalStateException("Utilisateur introuvable"));
+
+        GroupMembership membership = new GroupMembership();
+        membership.setUser(user);
+        membership.setGroup(group);
+        membership.setRole(GroupRole.MEMBRE);
+        membershipRepository.save(membership);
 
         return ResponseEntity.ok(GroupResponse.from(group));
     }
@@ -258,6 +320,16 @@ record AddMemberRequest(String email) {}
 record AssignPositionRequest(Integer position) {}
 
 
+record InvitePreviewResponse(
+        UUID id,
+        String nom,
+        BigDecimal montant,
+        String frequence,
+        Integer nombreMembres,
+        Integer membresActuels,
+        DaretGroup.DaretStatus statut
+) {}
+
 record GroupResponse(
         UUID id,
         String nom,
@@ -267,7 +339,8 @@ record GroupResponse(
         LocalDate dateDebut,
         String description,
         DaretGroup.DaretStatus statut,
-        Integer tourActuel
+        Integer tourActuel,
+        String inviteCode
 ) {
     static GroupResponse from(DaretGroup g) {
         return new GroupResponse(
@@ -279,7 +352,8 @@ record GroupResponse(
                 g.getDateDebut(),
                 g.getDescription(),
                 g.getStatut(),
-                g.getTourActuel()
+                g.getTourActuel(),
+                g.getInviteCode()
         );
     }
 }
