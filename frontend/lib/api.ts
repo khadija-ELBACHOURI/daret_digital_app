@@ -100,6 +100,66 @@ export async function loginUser(payload: {
   return handleResponse<AuthResponse>(res);
 }
 
+// ---------- Profile ----------
+
+export interface UserProfile {
+  id: string;
+  firstname: string;
+  lastname: string;
+  email: string;
+  phone: string | null;
+  iban: string | null;
+}
+
+export type UpdateProfilePayload = {
+  firstname: string;
+  lastname: string;
+  email: string;
+  phone: string;
+  iban: string;
+};
+
+export async function getMyProfile(): Promise<UserProfile> {
+  const token = getToken();
+  const res = await fetch(`${API_URL}/api/users/me`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return handleResponse<UserProfile>(res);
+}
+
+export async function updateMyProfile(payload: UpdateProfilePayload): Promise<UserProfile> {
+  const token = getToken();
+  const res = await fetch(`${API_URL}/api/users/me`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  });
+  return handleResponse<UserProfile>(res);
+}
+
+export async function changeMyPassword(payload: {
+  currentPassword: string;
+  newPassword: string;
+}): Promise<void> {
+  const token = getToken();
+  const res = await fetch(`${API_URL}/api/users/me/password`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    await handleResponse<never>(res); // throws with the backend message
+  }
+}
+
+// ---------- Groups ----------
+
 export async function createDaret(payload: {
   nom: string;
   montant: number;
