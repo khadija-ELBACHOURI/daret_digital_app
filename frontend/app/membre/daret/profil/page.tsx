@@ -1,36 +1,100 @@
 "use client";
 
 import type { FormEvent, ReactNode } from "react";
-import { useState } from "react";
-import { mockUser } from "@/lib/mock-data";
+import { useEffect, useState } from "react";
+import { getMyProfile, updateMyProfile, changeMyPassword } from "@/lib/api";
 
 const inputClass =
-  "w-full rounded-md border border-[#26282C] bg-[#101113] px-3 py-2 text-sm text-white placeholder-gray-600 outline-none transition-colors focus:border-[#00D492]";
+  "w-full rounded-md border border-[#26282C] bg-[#101113] px-3 py-2 text-sm text-white placeholder-gray-600 outline-none transition-colors focus:border-[#00D492] disabled:opacity-50";
+
+const emptyProfile = { firstname: "", lastname: "", email: "", phone: "", iban: "" };
 
 export default function ProfilPage() {
-  const [profile, setProfile] = useState({
-    name: mockUser.name,
-    email: mockUser.email,
-    phone: mockUser.phone,
-    iban: mockUser.iban,
-  });
+  const [profile, setProfile] = useState(emptyProfile);
   const [passwords, setPasswords] = useState({ current: "", next: "", confirm: "" });
-  const [savedProfile, setSavedProfile] = useState(false);
-  const [savedPassword, setSavedPassword] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  function handleProfileSubmit(e: FormEvent) {
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [savedProfile, setSavedProfile] = useState(false);
+  const [profileError, setProfileError] = useState<string | null>(null);
+
+  const [savingPassword, setSavingPassword] = useState(false);
+  const [savedPassword, setSavedPassword] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+
+  useEffect(() => {
+    getMyProfile()
+      .then((u) =>
+        setProfile({
+          firstname: u.firstname ?? "",
+          lastname: u.lastname ?? "",
+          email: u.email ?? "",
+          phone: u.phone ?? "",
+          iban: u.iban ?? "",
+        })
+      )
+      .catch((err: Error) => setLoadError(err.message))
+      .finally(() => setLoading(false));
+  }, []);
+
+  async function handleProfileSubmit(e: FormEvent) {
     e.preventDefault();
-    // TODO: remplacer par l'appel réel à lib/api.ts (PATCH /users/me)
-    setSavedProfile(true);
-    setTimeout(() => setSavedProfile(false), 2000);
+    setProfileError(null);
+    setSavingProfile(true);
+    try {
+      const u = await updateMyProfile(profile);
+      setProfile({
+        firstname: u.firstname ?? "",
+        lastname: u.lastname ?? "",
+        email: u.email ?? "",
+        phone: u.phone ?? "",
+        iban: u.iban ?? "",
+      });
+      setSavedProfile(true);
+      setTimeout(() => setSavedProfile(false), 2000);
+    } catch (err) {
+      setProfileError(err instanceof Error ? err.message : "Erreur lors de l'enregistrement.");
+    } finally {
+      setSavingProfile(false);
+    }
   }
 
-  function handlePasswordSubmit(e: FormEvent) {
+  async function handlePasswordSubmit(e: FormEvent) {
     e.preventDefault();
-    // TODO: remplacer par l'appel réel à lib/api.ts (PATCH /users/me/password)
-    setSavedPassword(true);
-    setPasswords({ current: "", next: "", confirm: "" });
-    setTimeout(() => setSavedPassword(false), 2000);
+    setPasswordError(null);
+
+    if (passwords.next.length < 8) {
+      setPasswordError("Le nouveau mot de passe doit contenir au moins 8 caractères.");
+      return;
+    }
+    if (passwords.next !== passwords.confirm) {
+      setPasswordError("Les mots de passe ne correspondent pas.");
+      return;
+    }
+
+    setSavingPassword(true);
+    try {
+      await changeMyPassword({
+        currentPassword: passwords.current,
+        newPassword: passwords.next,
+      });
+      setPasswords({ current: "", next: "", confirm: "" });
+      setSavedPassword(true);
+      setTimeout(() => setSavedPassword(false), 2000);
+    } catch (err) {
+      setPasswordError(err instanceof Error ? err.message : "Erreur lors de la modification.");
+    } finally {
+      setSavingPassword(false);
+    }
+  }
+
+  if (loading) {
+    return <p className="text-sm text-gray-400">Chargement...</p>;
+  }
+
+  if (loadError) {
+    return <p className="text-sm text-red-400">{loadError}</p>;
   }
 
   return (
@@ -40,28 +104,55 @@ export default function ProfilPage() {
         <p className="mb-6 text-sm text-gray-400">Vos informations personnelles.</p>
 
         <form onSubmit={handleProfileSubmit} className="space-y-4">
-          <Field label="Nom complet">
-            <input value={profile.name} onChange={(e) => setProfile((p) => ({ ...p, name: e.target.value }))} className={inputClass} />
-          </Field>
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Prénom">
+              <input
+                value={profile.firstname}
+                onChange={(e) => setProfile((p) => ({ ...p, firstname: e.target.value }))}
+                className={inputClass}
+                required
+              />
+            </Field>
+            <Field label="Nom">
+              <input
+                value={profile.lastname}
+                onChange={(e) => setProfile((p) => ({ ...p, lastname: e.target.value }))}
+                className={inputClass}
+                required
+              />
+            </Field>
+          </div>
           <Field label="Email">
             <input
               type="email"
               value={profile.email}
-              onChange={(e) => setProfile((p) => ({ ...p, email: e.target.value }))}
               className={inputClass}
+              disabled
             />
           </Field>
           <Field label="Téléphone">
-            <input value={profile.phone} onChange={(e) => setProfile((p) => ({ ...p, phone: e.target.value }))} className={inputClass} />
+            <input
+              value={profile.phone}
+              onChange={(e) => setProfile((p) => ({ ...p, phone: e.target.value }))}
+              className={inputClass}
+            />
           </Field>
           <Field label="IBAN (pour recevoir vos tours)">
-            <input value={profile.iban} onChange={(e) => setProfile((p) => ({ ...p, iban: e.target.value }))} className={inputClass} />
+            <input
+              value={profile.iban}
+              onChange={(e) => setProfile((p) => ({ ...p, iban: e.target.value }))}
+              className={inputClass}
+            />
           </Field>
+
+          {profileError && <p className="text-sm text-red-400">{profileError}</p>}
+
           <button
             type="submit"
-            className="rounded-md bg-[#00D492] px-4 py-2 text-sm font-medium text-black transition-colors hover:bg-[#00c184]"
+            disabled={savingProfile}
+            className="rounded-md bg-[#00D492] px-4 py-2 text-sm font-medium text-black transition-colors hover:bg-[#00c184] disabled:opacity-50"
           >
-            {savedProfile ? "Enregistré ✓" : "Enregistrer"}
+            {savingProfile ? "Enregistrement..." : savedProfile ? "Enregistré ✓" : "Enregistrer"}
           </button>
         </form>
       </div>
@@ -77,6 +168,7 @@ export default function ProfilPage() {
               value={passwords.current}
               onChange={(e) => setPasswords((p) => ({ ...p, current: e.target.value }))}
               className={inputClass}
+              required
             />
           </Field>
           <Field label="Nouveau mot de passe">
@@ -85,6 +177,7 @@ export default function ProfilPage() {
               value={passwords.next}
               onChange={(e) => setPasswords((p) => ({ ...p, next: e.target.value }))}
               className={inputClass}
+              required
             />
           </Field>
           <Field label="Confirmer le nouveau mot de passe">
@@ -93,13 +186,22 @@ export default function ProfilPage() {
               value={passwords.confirm}
               onChange={(e) => setPasswords((p) => ({ ...p, confirm: e.target.value }))}
               className={inputClass}
+              required
             />
           </Field>
+
+          {passwordError && <p className="text-sm text-red-400">{passwordError}</p>}
+
           <button
             type="submit"
-            className="rounded-md border border-[#26282C] px-4 py-2 text-sm text-white transition-colors hover:border-[#00D492]"
+            disabled={savingPassword}
+            className="rounded-md border border-[#26282C] px-4 py-2 text-sm text-white transition-colors hover:border-[#00D492] disabled:opacity-50"
           >
-            {savedPassword ? "Mot de passe modifié ✓" : "Mettre à jour"}
+            {savingPassword
+              ? "Mise à jour..."
+              : savedPassword
+                ? "Mot de passe modifié ✓"
+                : "Mettre à jour"}
           </button>
         </form>
       </div>
