@@ -26,6 +26,12 @@ public class User {
     @Column(nullable = false)
     private String lastname;
 
+    @Column
+    private String phone;
+
+    @Column
+    private String iban;
+
     @OneToMany(mappedBy = "user")
     private List<GroupMembership> memberships;
 
