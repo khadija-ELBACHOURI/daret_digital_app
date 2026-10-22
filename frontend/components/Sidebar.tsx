@@ -1,16 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import {useRouter} from "next/navigation"
-import { usePathname } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   LayoutDashboard,
   Users,
   UserPlus,
   UserCircle,
-  ChevronsUpDown,
   ChevronLeft,
+  ChevronRight,
   Plus,
   Wallet,
   Calendar,
@@ -35,25 +34,43 @@ const activeDaretNav = [
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
   const [groups, setGroups] = useState<MyGroupResponse[]>([]);
-  const router = useRouter();
+  const [activeIndex, setActiveIndex] = useState(0);
 
   const handleLogout = () => {
     localStorage.removeItem("token");
     router.push("/login");
   };
+
   useEffect(() => {
     getMyGroups()
       .then(setGroups)
       .catch(() => setGroups([])); // silencieux : la sidebar reste utilisable sans daret active
   }, []);
 
-  // "Daret active" = première daret active du membre.
-  const activeDaret = groups.find((d) => d.statut === "ACTIVE");
-  const inDaretDetail = pathname?.startsWith("/membre/daret/") && activeDaret
-    ? pathname.includes(activeDaret.id)
-    : false;
+  // Toutes les darets actives du membre.
+  const activeDarets = groups.filter((d) => d.statut === "ACTIVE");
+
+  // Si l'URL pointe vers une daret active, on la sélectionne.
+  useEffect(() => {
+    if (!pathname || activeDarets.length === 0) return;
+    const idx = activeDarets.findIndex((d) => pathname.startsWith(`/membre/daret/${d.id}`));
+    if (idx !== -1) setActiveIndex(idx);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname, groups]);
+
+  // Garde l'index valide si la liste change.
+  const safeIndex = activeDarets.length > 0 ? Math.min(activeIndex, activeDarets.length - 1) : 0;
+  const activeDaret = activeDarets[safeIndex];
+  const hasMultiple = activeDarets.length > 1;
+
+  const goPrev = () =>
+    setActiveIndex((safeIndex - 1 + activeDarets.length) % activeDarets.length);
+  const goNext = () => setActiveIndex((safeIndex + 1) % activeDarets.length);
+
+  const inDaretDetail = activeDaret ? !!pathname?.includes(activeDaret.id) : false;
 
   if (collapsed) {
     return (
@@ -135,19 +152,45 @@ export default function Sidebar() {
 
       {activeDaret && (
         <>
-          <div className="mt-6 px-4 pb-2 text-xs font-medium uppercase tracking-wide text-gray-500">
-            Daret active
+          <div className="mt-6 flex items-center justify-between px-4 pb-2 text-xs font-medium uppercase tracking-wide text-gray-500">
+            <span>Daret active</span>
+            {hasMultiple && (
+              <span className="normal-case tracking-normal">
+                {safeIndex + 1}/{activeDarets.length}
+              </span>
+            )}
           </div>
 
           <div className="px-3">
-            <Link
-              href={`/membre/daret/${activeDaret.id}`}
-              className="mb-2 flex w-full items-center gap-2 rounded-md border border-[#26282C] bg-[#101113] px-3 py-2 text-sm text-white transition-colors hover:border-[#00D492]/50"
-            >
-              <Shield className="h-4 w-4 text-[#00D492]" />
-              <span className="truncate">{activeDaret.nom}</span>
-              <ChevronsUpDown className="ml-auto h-3.5 w-3.5 text-gray-500" />
-            </Link>
+            <div className="mb-2 flex w-full items-center gap-1">
+              {hasMultiple && (
+                <button
+                  onClick={goPrev}
+                  className="flex h-9 w-7 shrink-0 items-center justify-center rounded-md text-gray-500 transition-colors hover:bg-[#141517] hover:text-white"
+                  aria-label="Daret précédente"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+              )}
+
+              <Link
+                href={`/membre/daret/${activeDaret.id}`}
+                className="flex min-w-0 flex-1 items-center gap-2 rounded-md border border-[#26282C] bg-[#101113] px-3 py-2 text-sm text-white transition-colors hover:border-[#00D492]/50"
+              >
+                <Shield className="h-4 w-4 shrink-0 text-[#00D492]" />
+                <span className="truncate">{activeDaret.nom}</span>
+              </Link>
+
+              {hasMultiple && (
+                <button
+                  onClick={goNext}
+                  className="flex h-9 w-7 shrink-0 items-center justify-center rounded-md text-gray-500 transition-colors hover:bg-[#141517] hover:text-white"
+                  aria-label="Daret suivante"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              )}
+            </div>
           </div>
 
           <nav className="px-3">
