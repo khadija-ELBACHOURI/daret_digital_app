@@ -27,14 +27,24 @@ public class AuthController {
 
     @PostMapping("/register")
     public ResponseEntity<?> register(@RequestBody RegisterRequest request) {
+        if (request.nom() == null || request.nom().isBlank()) {
+            return ResponseEntity.badRequest().body("Le nom est obligatoire");
+        }
         if (repository.findByEmail(request.email()).isPresent()) {
             return ResponseEntity.badRequest().body("Email deja utilise");
         }
 
+        // "nom" is the full name typed at registration: first word = firstname,
+        // the rest = lastname (empty string if only one word, the column is NOT NULL).
+        String fullName = request.nom().trim().replaceAll("\\s+", " ");
+        int space = fullName.indexOf(' ');
+        String firstname = space == -1 ? fullName : fullName.substring(0, space);
+        String lastname = space == -1 ? "" : fullName.substring(space + 1);
+
         User user = new User();
         user.setEmail(request.email());
-        user.setFirstname(request.nom());
-        user.setLastname(request.nom());
+        user.setFirstname(firstname);
+        user.setLastname(lastname);
         user.setPassword(passwordEncoder.encode(request.motDePasse()));
 
         repository.save(user);
