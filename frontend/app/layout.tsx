@@ -1,15 +1,15 @@
 import type { Metadata } from "next";
-import { Playfair_Display, Inter } from "next/font/google";
+import { Bricolage_Grotesque, DM_Sans } from "next/font/google";
 import { AuthProvider } from "@/lib/auth-context";
 import "./globals.css";
 
-const playfair = Playfair_Display({
+const displayFont = Bricolage_Grotesque({
   subsets: ["latin"],
-  variable: "--font-serif",
+  variable: "--font-display",
   display: "swap",
 });
 
-const inter = Inter({
+const sansFont = DM_Sans({
   subsets: ["latin"],
   variable: "--font-sans",
   display: "swap",
@@ -24,8 +24,11 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="fr">
-      <body className={`${playfair.variable} ${inter.variable} font-sans`}>
+    <html lang="fr" suppressHydrationWarning>
+      <body
+        className={`${displayFont.variable} ${sansFont.variable}`}
+        style={{ fontFamily: "var(--font-sans), system-ui, sans-serif" }}
+      >
         <AuthProvider>{children}</AuthProvider>
       </body>
     </html>
