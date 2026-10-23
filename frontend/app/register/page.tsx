@@ -3,7 +3,9 @@
 import { useState, FormEvent } from "react";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
-import { TurnRing } from "@/components/TurnRing";
+import AuthShell from "@/components/AuthShell";
+import PasswordInput from "@/components/PasswordInput";
+import { btnPrimary, display, errorBox, inputClass, labelClass } from "@/components/ui";
 
 export default function RegisterPage() {
   const { register } = useAuth();
@@ -19,7 +21,7 @@ export default function RegisterPage() {
     setError(null);
 
     if (motDePasse.length < 8) {
-      setError("Le mot de passe doit contenir au moins 8 caracteres.");
+      setError("Le mot de passe doit contenir au moins 8 caractères.");
       return;
     }
     if (motDePasse !== confirmation) {
@@ -38,134 +40,98 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="flex min-h-screen bg-[#0F2A35]">
-      <div className="relative hidden w-1/2 flex-col justify-between overflow-hidden bg-[#0B222B] p-12 lg:flex">
-        <div className="flex items-center gap-2">
-          <span className="h-2 w-2 rounded-full bg-[#C9A227]" />
-          <span className="font-serif text-lg tracking-wide text-[#F2E8D5]">
-            Daret Digital
-          </span>
+    <AuthShell
+      startIndex={5}
+      headline={
+        <>
+          Rejoignez
+          <br />
+          le cercle.
+        </>
+      }
+      tagline="Créez votre compte pour organiser une daret entre proches, ou rejoindre un groupe existant en quelques minutes."
+    >
+      <h1 className={`${display} text-4xl font-extrabold text-[#0E1442]`}>Créer un compte</h1>
+      <p className="mt-2 text-[15px] text-[#5B6190]">Rejoignez Daret Digital en quelques instants.</p>
+
+      <form onSubmit={handleSubmit} className="mt-8 space-y-5">
+        <div>
+          <label htmlFor="nom" className={labelClass}>
+            Nom complet
+          </label>
+          <input
+            id="nom"
+            type="text"
+            required
+            autoComplete="name"
+            value={nom}
+            onChange={(e) => setNom(e.target.value)}
+            className={inputClass}
+            placeholder="Prénom Nom"
+          />
         </div>
 
-        <div className="mx-auto h-64 w-64">
-          <TurnRing activeIndex={5} />
+        <div>
+          <label htmlFor="email" className={labelClass}>
+            Email
+          </label>
+          <input
+            id="email"
+            type="email"
+            required
+            autoComplete="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className={inputClass}
+            placeholder="vous@exemple.com"
+          />
         </div>
 
-        <p className="max-w-sm text-sm leading-relaxed text-[#F2E8D5]/60">
-          Creez votre compte pour organiser un daret entre proches, ou
-          rejoindre un groupe existant en quelques minutes.
-        </p>
-      </div>
+        <div>
+          <label htmlFor="password" className={labelClass}>
+            Mot de passe
+          </label>
+          <PasswordInput
+            id="password"
+            value={motDePasse}
+            onChange={setMotDePasse}
+            autoComplete="new-password"
+            placeholder="8 caractères minimum"
+          />
+        </div>
 
-      <div className="flex w-full flex-col justify-center px-8 lg:w-1/2 lg:px-16">
-        <div className="mx-auto w-full max-w-sm">
-          <h1 className="font-serif text-3xl text-[#F2E8D5]">
-            Creer un compte
-          </h1>
-          <p className="mt-2 text-sm text-[#F2E8D5]/60">
-            Rejoignez Daret Digital en quelques instants.
+        <div>
+          <label htmlFor="confirmation" className={labelClass}>
+            Confirmer le mot de passe
+          </label>
+          <PasswordInput
+            id="confirmation"
+            value={confirmation}
+            onChange={setConfirmation}
+            autoComplete="new-password"
+          />
+        </div>
+
+        {error && (
+          <p role="alert" className={errorBox}>
+            {error}
           </p>
+        )}
 
-          <form onSubmit={handleSubmit} className="mt-8 space-y-5">
-            <div>
-              <label
-                htmlFor="nom"
-                className="block text-xs font-medium uppercase tracking-wide text-[#F2E8D5]/70"
-              >
-                Nom complet
-              </label>
-              <input
-                id="nom"
-                type="text"
-                required
-                autoComplete="name"
-                value={nom}
-                onChange={(e) => setNom(e.target.value)}
-                className="mt-2 w-full rounded-md border border-[#F2E8D5]/15 bg-[#0B222B] px-4 py-2.5 text-[#F2E8D5] placeholder:text-[#F2E8D5]/30 focus:border-[#C9A227] focus:outline-none focus:ring-1 focus:ring-[#C9A227]"
-                placeholder="Votre nom"
-              />
-            </div>
+        <button type="submit" disabled={isSubmitting} className={`${btnPrimary} w-full py-3.5 text-base`}>
+          {isSubmitting ? "Création en cours..." : "Créer mon compte"}
+        </button>
+      </form>
 
-            <div>
-              <label
-                htmlFor="email"
-                className="block text-xs font-medium uppercase tracking-wide text-[#F2E8D5]/70"
-              >
-                Email
-              </label>
-              <input
-                id="email"
-                type="email"
-                required
-                autoComplete="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="mt-2 w-full rounded-md border border-[#F2E8D5]/15 bg-[#0B222B] px-4 py-2.5 text-[#F2E8D5] placeholder:text-[#F2E8D5]/30 focus:border-[#C9A227] focus:outline-none focus:ring-1 focus:ring-[#C9A227]"
-                placeholder="vous@exemple.com"
-              />
-            </div>
-
-            <div>
-              <label
-                htmlFor="password"
-                className="block text-xs font-medium uppercase tracking-wide text-[#F2E8D5]/70"
-              >
-                Mot de passe
-              </label>
-              <input
-                id="password"
-                type="password"
-                required
-                autoComplete="new-password"
-                value={motDePasse}
-                onChange={(e) => setMotDePasse(e.target.value)}
-                className="mt-2 w-full rounded-md border border-[#F2E8D5]/15 bg-[#0B222B] px-4 py-2.5 text-[#F2E8D5] placeholder:text-[#F2E8D5]/30 focus:border-[#C9A227] focus:outline-none focus:ring-1 focus:ring-[#C9A227]"
-                placeholder="8 caracteres minimum"
-              />
-            </div>
-
-            <div>
-              <label
-                htmlFor="confirmation"
-                className="block text-xs font-medium uppercase tracking-wide text-[#F2E8D5]/70"
-              >
-                Confirmer le mot de passe
-              </label>
-              <input
-                id="confirmation"
-                type="password"
-                required
-                autoComplete="new-password"
-                value={confirmation}
-                onChange={(e) => setConfirmation(e.target.value)}
-                className="mt-2 w-full rounded-md border border-[#F2E8D5]/15 bg-[#0B222B] px-4 py-2.5 text-[#F2E8D5] placeholder:text-[#F2E8D5]/30 focus:border-[#C9A227] focus:outline-none focus:ring-1 focus:ring-[#C9A227]"
-                placeholder="********"
-              />
-            </div>
-
-            {error && (
-              <p className="rounded-md border border-[#B5533C]/40 bg-[#B5533C]/10 px-3 py-2 text-sm text-[#E8A08F]">
-                {error}
-              </p>
-            )}
-
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="w-full rounded-md bg-[#C9A227] px-4 py-2.5 font-medium text-[#0F2A35] transition hover:bg-[#DBB63A] disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {isSubmitting ? "Creation en cours..." : "Creer mon compte"}
-            </button>
-          </form>
-
-          <p className="mt-6 text-center text-sm text-[#F2E8D5]/60">
-            Deja inscrit ?{" "}
-            <Link href="/login" className="text-[#C9A227] hover:underline">
-              Se connecter
-            </Link>
-          </p>
-        </div>
-      </div>
-    </div>
+      <p className="mt-8 text-center text-sm text-[#5B6190]">
+        Déjà inscrit ?{" "}
+        <Link
+          href="/login"
+          className="font-semibold text-[#1B2A9B] underline decoration-[#FFB81C] decoration-2 underline-offset-4 hover:decoration-[#1B2A9B]"
+        >
+          Se connecter
+        </Link>
+      </p>
+    </AuthShell>
   );
 }
