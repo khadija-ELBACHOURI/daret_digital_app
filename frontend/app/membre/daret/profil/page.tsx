@@ -3,9 +3,18 @@
 import type { FormEvent, ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { getMyProfile, updateMyProfile, changeMyPassword } from "@/lib/api";
-
-const inputClass =
-  "w-full rounded-md border border-[#26282C] bg-[#101113] px-3 py-2 text-sm text-white placeholder-gray-600 outline-none transition-colors focus:border-[#00D492] disabled:opacity-50";
+import PasswordInput from "@/components/PasswordInput";
+import {
+  btnPrimary,
+  btnSecondary,
+  card,
+  errorBox,
+  inputClass,
+  labelClass,
+  pageTitle,
+  sectionTitle,
+  subtle,
+} from "@/components/ui";
 
 const emptyProfile = { firstname: "", lastname: "", email: "", phone: "", iban: "" };
 
@@ -90,21 +99,21 @@ export default function ProfilPage() {
   }
 
   if (loading) {
-    return <p className="text-sm text-gray-400">Chargement...</p>;
+    return <p className={`text-sm ${subtle}`}>Chargement...</p>;
   }
 
   if (loadError) {
-    return <p className="text-sm text-red-400">{loadError}</p>;
+    return <p className={errorBox}>{loadError}</p>;
   }
 
   return (
-    <div className="max-w-xl space-y-10">
+    <div className="max-w-xl space-y-8">
       <div>
-        <h1 className="mb-1 text-2xl font-semibold text-white">Profil</h1>
-        <p className="mb-6 text-sm text-gray-400">Vos informations personnelles.</p>
+        <h1 className={`${pageTitle} mb-1`}>Profil</h1>
+        <p className={`mb-6 text-sm ${subtle}`}>Vos informations personnelles.</p>
 
-        <form onSubmit={handleProfileSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+        <form onSubmit={handleProfileSubmit} className={`${card} space-y-4 p-6`}>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="Prénom">
               <input
                 value={profile.firstname}
@@ -123,12 +132,7 @@ export default function ProfilPage() {
             </Field>
           </div>
           <Field label="Email">
-            <input
-              type="email"
-              value={profile.email}
-              className={inputClass}
-              disabled
-            />
+            <input type="email" value={profile.email} className={inputClass} disabled />
           </Field>
           <Field label="Téléphone">
             <input
@@ -145,63 +149,58 @@ export default function ProfilPage() {
             />
           </Field>
 
-          {profileError && <p className="text-sm text-red-400">{profileError}</p>}
+          {profileError && <p role="alert" className={errorBox}>{profileError}</p>}
 
-          <button
-            type="submit"
-            disabled={savingProfile}
-            className="rounded-md bg-[#00D492] px-4 py-2 text-sm font-medium text-black transition-colors hover:bg-[#00c184] disabled:opacity-50"
-          >
+          <button type="submit" disabled={savingProfile} className={btnPrimary}>
             {savingProfile ? "Enregistrement..." : savedProfile ? "Enregistré ✓" : "Enregistrer"}
           </button>
         </form>
       </div>
 
-      <div className="border-t border-[#1F2023] pt-8">
-        <h2 className="mb-1 text-lg font-medium text-white">Mot de passe</h2>
-        <p className="mb-6 text-sm text-gray-400">Modifiez votre mot de passe.</p>
+      <div>
+        <h2 className={`${sectionTitle} mb-1`}>Mot de passe</h2>
+        <p className={`mb-4 text-sm ${subtle}`}>Modifiez votre mot de passe.</p>
 
-        <form onSubmit={handlePasswordSubmit} className="space-y-4">
-          <Field label="Mot de passe actuel">
-            <input
-              type="password"
+        <form onSubmit={handlePasswordSubmit} className={`${card} space-y-4 p-6`}>
+          <div>
+            <label htmlFor="pwd-current" className={labelClass}>
+              Mot de passe actuel
+            </label>
+            <PasswordInput
+              id="pwd-current"
               value={passwords.current}
-              onChange={(e) => setPasswords((p) => ({ ...p, current: e.target.value }))}
-              className={inputClass}
-              required
+              onChange={(v) => setPasswords((p) => ({ ...p, current: v }))}
+              autoComplete="current-password"
             />
-          </Field>
-          <Field label="Nouveau mot de passe">
-            <input
-              type="password"
+          </div>
+          <div>
+            <label htmlFor="pwd-next" className={labelClass}>
+              Nouveau mot de passe
+            </label>
+            <PasswordInput
+              id="pwd-next"
               value={passwords.next}
-              onChange={(e) => setPasswords((p) => ({ ...p, next: e.target.value }))}
-              className={inputClass}
-              required
+              onChange={(v) => setPasswords((p) => ({ ...p, next: v }))}
+              autoComplete="new-password"
+              placeholder="8 caractères minimum"
             />
-          </Field>
-          <Field label="Confirmer le nouveau mot de passe">
-            <input
-              type="password"
+          </div>
+          <div>
+            <label htmlFor="pwd-confirm" className={labelClass}>
+              Confirmer le nouveau mot de passe
+            </label>
+            <PasswordInput
+              id="pwd-confirm"
               value={passwords.confirm}
-              onChange={(e) => setPasswords((p) => ({ ...p, confirm: e.target.value }))}
-              className={inputClass}
-              required
+              onChange={(v) => setPasswords((p) => ({ ...p, confirm: v }))}
+              autoComplete="new-password"
             />
-          </Field>
+          </div>
 
-          {passwordError && <p className="text-sm text-red-400">{passwordError}</p>}
+          {passwordError && <p role="alert" className={errorBox}>{passwordError}</p>}
 
-          <button
-            type="submit"
-            disabled={savingPassword}
-            className="rounded-md border border-[#26282C] px-4 py-2 text-sm text-white transition-colors hover:border-[#00D492] disabled:opacity-50"
-          >
-            {savingPassword
-              ? "Mise à jour..."
-              : savedPassword
-                ? "Mot de passe modifié ✓"
-                : "Mettre à jour"}
+          <button type="submit" disabled={savingPassword} className={btnSecondary}>
+            {savingPassword ? "Mise à jour..." : savedPassword ? "Mot de passe modifié ✓" : "Mettre à jour"}
           </button>
         </form>
       </div>
@@ -212,7 +211,7 @@ export default function ProfilPage() {
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <label className="block">
-      <span className="mb-1.5 block text-sm text-gray-300">{label}</span>
+      <span className={labelClass}>{label}</span>
       {children}
     </label>
   );
