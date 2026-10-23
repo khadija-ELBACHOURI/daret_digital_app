@@ -1,5 +1,5 @@
 "use client";
- 
+
 import { useCallback, useEffect, useState } from "react";
 import { CheckCircle2, Clock, AlertTriangle, Wallet, Gift } from "lucide-react";
 import {
@@ -16,22 +16,33 @@ import {
   PaymentStatus,
   PayoutResponse,
 } from "@/lib/api";
- 
+import {
+  badge,
+  btnPrimary,
+  btnPrimarySm,
+  btnSecondarySm,
+  card,
+  errorText,
+  sectionTitle,
+  statusStyles,
+  subtle,
+} from "@/components/ui";
+
 type RowStatus = PaymentStatus | "NON_GENEREE";
- 
+
 const statusMeta: Record<RowStatus, { label: string; className: string }> = {
-  NON_GENEREE: { label: "Non générée", className: "bg-[#1F2023] text-gray-500" },
-  PENDING: { label: "En attente", className: "bg-[#2A2410] text-[#E5B800]" },
-  PAID: { label: "Payé, à valider", className: "bg-[#132A2E] text-[#38BDF8]" },
-  VALIDATED: { label: "Validé", className: "bg-[#16241D] text-[#00D492]" },
-  LATE: { label: "En retard", className: "bg-[#2A1414] text-red-400" },
+  NON_GENEREE: { label: "Non générée", className: "bg-[#E8EAF4] text-[#5B6190]" },
+  PENDING: { label: "En attente", className: statusStyles.EN_ATTENTE.className },
+  PAID: { label: "Payé, à valider", className: "bg-[#E6E9FB] text-[#1B2A9B]" },
+  VALIDATED: { label: "Validé", className: statusStyles.ACTIVE.className },
+  LATE: { label: "En retard", className: "bg-[#FDECEA] text-[#B3261E]" },
 };
- 
+
 // Set NEXT_PUBLIC_MANUAL_PAYMENTS=true in .env.local to also show the manual
 // "J'ai payé" button (cash / transfer). Must match payments.manual-declaration-enabled
 // on the backend, otherwise the backend rejects the call.
 const MANUAL_PAYMENTS_ENABLED = process.env.NEXT_PUBLIC_MANUAL_PAYMENTS === "true";
- 
+
 interface PaymentsPanelProps {
   groupId: string;
   cycle: number;
@@ -42,7 +53,7 @@ interface PaymentsPanelProps {
   isOrganisateur: boolean;
   onTurnClosed: () => void;
 }
- 
+
 export default function PaymentsPanel({
   groupId,
   cycle,
@@ -63,7 +74,7 @@ export default function PaymentsPanel({
   const [confirmingPayout, setConfirmingPayout] = useState(false);
   const [payingByCard, setPayingByCard] = useState(false);
   const [returnedFromStripe, setReturnedFromStripe] = useState<"success" | "cancelled" | null>(null);
- 
+
   const loadPayments = useCallback(() => {
     return getPaymentsForCycle(groupId, cycle)
       .then(setPayments)
@@ -75,19 +86,19 @@ export default function PaymentsPanel({
         )
       );
   }, [groupId, cycle]);
- 
+
   const loadPayout = useCallback(() => {
     return getCurrentPayout(groupId)
       .then(setPayout)
-      .catch(() => setPayout(null)); // silencieux, ex: position pas encore assignée
+      .catch(() => setPayout(null)); // silent, e.g. position not assigned yet
   }, [groupId]);
- 
+
   useEffect(() => {
     setLoading(true);
     setError(null);
     Promise.all([loadPayments(), loadPayout()]).finally(() => setLoading(false));
   }, [loadPayments, loadPayout]);
- 
+
   // Detect the redirect back from Stripe (?payment=success or ?payment=cancelled).
   useEffect(() => {
     const result = new URLSearchParams(window.location.search).get("payment");
@@ -95,29 +106,29 @@ export default function PaymentsPanel({
       setReturnedFromStripe(result);
     }
   }, []);
- 
+
   const sortedMembers = [...members].sort(
     (a, b) => (a.position ?? Infinity) - (b.position ?? Infinity)
   );
- 
+
   const rows = sortedMembers.map((m) => {
     const payment = payments.find((p) => p.memberId === m.userId) ?? null;
     return { member: m, payment };
   });
- 
+
   const myPayment = payments.find((p) => p.memberId === currentUserId) ?? null;
   const allValidated =
     payments.length === members.length &&
     payments.length > 0 &&
     payments.every((p) => p.status === "VALIDATED");
   const payoutConfirmed = payout?.status === "VERSE";
- 
+
   // After a successful Stripe payment the webhook can arrive a moment after the
   // redirect, so poll for a few seconds until the payment shows as validated.
   const myStatus = myPayment?.status;
   useEffect(() => {
     if (returnedFromStripe !== "success" || myStatus === "VALIDATED") return;
- 
+
     let attempts = 0;
     const timer = setInterval(() => {
       attempts += 1;
@@ -125,10 +136,10 @@ export default function PaymentsPanel({
       loadPayout();
       if (attempts >= 10) clearInterval(timer);
     }, 2000);
- 
+
     return () => clearInterval(timer);
   }, [returnedFromStripe, myStatus, loadPayments, loadPayout]);
- 
+
   async function handlePayByCard() {
     setError(null);
     setPayingByCard(true);
@@ -140,7 +151,7 @@ export default function PaymentsPanel({
       setPayingByCard(false);
     }
   }
- 
+
   async function handleDeclare() {
     setError(null);
     setActioningId("me");
@@ -153,7 +164,7 @@ export default function PaymentsPanel({
       setActioningId(null);
     }
   }
- 
+
   async function handleValidate(paymentId: string) {
     setError(null);
     setActioningId(paymentId);
@@ -166,7 +177,7 @@ export default function PaymentsPanel({
       setActioningId(null);
     }
   }
- 
+
   async function handleGenerate() {
     setError(null);
     setGenerating(true);
@@ -179,7 +190,7 @@ export default function PaymentsPanel({
       setGenerating(false);
     }
   }
- 
+
   async function handleConfirmPayout() {
     setError(null);
     setConfirmingPayout(true);
@@ -192,7 +203,7 @@ export default function PaymentsPanel({
       setConfirmingPayout(false);
     }
   }
- 
+
   async function handleCloseTurn() {
     setError(null);
     setClosing(true);
@@ -205,90 +216,70 @@ export default function PaymentsPanel({
       setClosing(false);
     }
   }
- 
+
   return (
     <div>
-      <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-sm font-medium uppercase tracking-wide text-gray-500">
-          Paiements
-        </h2>
-        <span className="text-xs text-gray-500">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <h2 className={sectionTitle}>Paiements</h2>
+        <span className={`text-sm ${subtle}`}>
           Tour {cycle + 1} / {totalTurns} · {amount.toLocaleString("fr-FR")} MAD par membre
         </span>
       </div>
- 
+
       {isOrganisateur && !loading && payments.length < members.length && (
-        <div className="mb-3 flex items-center justify-between rounded-lg border border-[#26282C] bg-[#101113] p-4">
-          <span className="text-sm text-gray-400">
+        <div className={`${card} mb-3 flex flex-wrap items-center justify-between gap-3 p-4`}>
+          <span className={`text-sm ${subtle}`}>
             {payments.length === 0
               ? "Aucun paiement généré pour ce tour."
               : `${members.length - payments.length} membre(s) sans paiement généré pour ce tour.`}
           </span>
-          <button
-            onClick={handleGenerate}
-            disabled={generating}
-            className="rounded-md bg-[#00D492] px-3 py-1.5 text-xs font-medium text-black transition-colors hover:bg-[#00c184] disabled:opacity-50"
-          >
+          <button onClick={handleGenerate} disabled={generating} className={btnPrimarySm}>
             {generating ? "Génération..." : "Générer les paiements"}
           </button>
         </div>
       )}
- 
+
       {loading ? (
-        <div className="rounded-lg border border-[#1F2023] bg-[#101113] p-4 text-sm text-gray-400">
-          Chargement...
-        </div>
+        <div className={`${card} p-5 text-sm ${subtle}`}>Chargement...</div>
       ) : (
-        <div className="rounded-lg border border-[#1F2023] bg-[#101113]">
-          {rows.map(({ member, payment }, i) => {
+        <div className={`${card} divide-y divide-[#E3E7F3]`}>
+          {rows.map(({ member, payment }) => {
             const status: RowStatus = payment?.status ?? "NON_GENEREE";
             const meta = statusMeta[status];
             const isMe = member.userId === currentUserId;
             const canPay = isMe && (payment?.status === "PENDING" || payment?.status === "LATE");
- 
+
             return (
               <div
                 key={member.userId}
-                className={`flex items-center justify-between px-4 py-3 text-sm ${
-                  i !== rows.length - 1 ? "border-b border-[#1F2023]" : ""
-                }`}
+                className="flex flex-wrap items-center justify-between gap-3 px-5 py-3.5 text-sm"
               >
                 <div className="flex items-center gap-3">
-                  <span className="text-gray-300">
+                  <span className="font-medium text-[#0E1442]">
                     {member.firstname} {member.lastname}
                   </span>
-                  <span className={`rounded-full px-2 py-0.5 text-xs ${meta.className}`}>
-                    {meta.label}
-                  </span>
+                  <span className={`${badge} ${meta.className}`}>{meta.label}</span>
                 </div>
- 
+
                 <div className="flex items-center gap-2">
                   {isOrganisateur && payment?.status === "PAID" && (
                     <button
                       onClick={() => handleValidate(payment.id)}
                       disabled={actioningId === payment.id}
-                      className="rounded-md bg-[#00D492] px-3 py-1.5 text-xs font-medium text-black transition-colors hover:bg-[#00c184] disabled:opacity-50"
+                      className={btnPrimarySm}
                     >
                       {actioningId === payment.id ? "Validation..." : "Valider"}
                     </button>
                   )}
- 
+
                   {canPay && (
-                    <button
-                      onClick={handlePayByCard}
-                      disabled={payingByCard}
-                      className="rounded-md bg-[#00D492] px-3 py-1.5 text-xs font-medium text-black transition-colors hover:bg-[#00c184] disabled:opacity-50"
-                    >
+                    <button onClick={handlePayByCard} disabled={payingByCard} className={btnPrimarySm}>
                       {payingByCard ? "Redirection..." : "Payer par carte"}
                     </button>
                   )}
- 
+
                   {canPay && MANUAL_PAYMENTS_ENABLED && (
-                    <button
-                      onClick={handleDeclare}
-                      disabled={actioningId === "me"}
-                      className="rounded-md border border-[#26282C] px-3 py-1.5 text-xs font-medium text-gray-300 transition-colors hover:bg-[#1F2023] disabled:opacity-50"
-                    >
+                    <button onClick={handleDeclare} disabled={actioningId === "me"} className={btnSecondarySm}>
                       {actioningId === "me" ? "Envoi..." : "J'ai payé (espèces / virement)"}
                     </button>
                   )}
@@ -298,74 +289,68 @@ export default function PaymentsPanel({
           })}
         </div>
       )}
- 
+
       {error && (
-        <p className="mt-2 flex items-center gap-1 text-sm text-red-400">
-          <AlertTriangle className="h-3.5 w-3.5" />
+        <p className={`mt-3 flex items-center gap-1.5 ${errorText}`}>
+          <AlertTriangle className="h-4 w-4" />
           {error}
         </p>
       )}
- 
+
       {returnedFromStripe === "cancelled" && myPayment?.status !== "VALIDATED" && (
-        <p className="mt-2 flex items-center gap-1 text-sm text-gray-400">
-          <AlertTriangle className="h-3.5 w-3.5" />
+        <p className={`mt-3 flex items-center gap-1.5 text-sm ${subtle}`}>
+          <AlertTriangle className="h-4 w-4" />
           Paiement annulé. Vous pouvez réessayer.
         </p>
       )}
- 
+
       {returnedFromStripe === "success" && myPayment?.status !== "VALIDATED" && (
-        <p className="mt-2 flex items-center gap-1 text-sm text-gray-400">
-          <Clock className="h-3.5 w-3.5" />
+        <p className={`mt-3 flex items-center gap-1.5 text-sm ${subtle}`}>
+          <Clock className="h-4 w-4" />
           Paiement reçu, confirmation en cours...
         </p>
       )}
- 
+
       {myPayment?.status === "VALIDATED" && (
-        <p className="mt-2 flex items-center gap-1 text-sm text-[#00D492]">
-          <CheckCircle2 className="h-3.5 w-3.5" />
+        <p className="mt-3 flex items-center gap-1.5 text-sm font-medium text-[#0B7A69]">
+          <CheckCircle2 className="h-4 w-4" />
           Votre cotisation pour ce tour est validée.
         </p>
       )}
- 
+
       {myPayment?.status === "PAID" && (
-        <p className="mt-2 flex items-center gap-1 text-sm text-gray-400">
-          <Clock className="h-3.5 w-3.5" />
+        <p className={`mt-3 flex items-center gap-1.5 text-sm ${subtle}`}>
+          <Clock className="h-4 w-4" />
           En attente de validation par l&apos;organisateur.
         </p>
       )}
- 
+
       {!loading && allValidated && payout && (
-        <div className="mt-3 flex items-center justify-between rounded-lg border border-[#1F2023] bg-[#101113] p-4">
-          <div className="flex items-center gap-2 text-sm text-gray-300">
-            <Gift className="h-4 w-4 text-[#00D492]" />
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border-2 border-[#FFB81C]/60 bg-[#FFF8E6] p-5">
+          <div className="flex items-center gap-3 text-sm text-[#0E1442]">
+            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#FFB81C]/30 text-[#8A5A00]">
+              <Gift className="h-4 w-4" />
+            </span>
             <span>
               Bénéficiaire de ce tour : <strong>{payout.beneficiaryName}</strong> ·{" "}
               {payout.amount.toLocaleString("fr-FR")} MAD
             </span>
           </div>
           {payoutConfirmed ? (
-            <span className="rounded-full bg-[#16241D] px-2 py-0.5 text-xs text-[#00D492]">
-              Versé
-            </span>
+            <span className={`${badge} ${statusStyles.ACTIVE.className}`}>Versé</span>
           ) : isOrganisateur ? (
-            <button
-              onClick={handleConfirmPayout}
-              disabled={confirmingPayout}
-              className="rounded-md bg-[#00D492] px-3 py-1.5 text-xs font-medium text-black transition-colors hover:bg-[#00c184] disabled:opacity-50"
-            >
+            <button onClick={handleConfirmPayout} disabled={confirmingPayout} className={btnPrimarySm}>
               {confirmingPayout ? "Confirmation..." : "Confirmer le versement"}
             </button>
           ) : (
-            <span className="rounded-full bg-[#2A2410] px-2 py-0.5 text-xs text-[#E5B800]">
-              En attente
-            </span>
+            <span className={`${badge} ${statusStyles.EN_ATTENTE.className}`}>En attente</span>
           )}
         </div>
       )}
- 
+
       {isOrganisateur && (
-        <div className="mt-3 flex items-center justify-between rounded-lg border border-[#1F2023] bg-[#101113] p-4">
-          <div className="flex items-center gap-2 text-sm text-gray-400">
+        <div className={`${card} mt-4 flex flex-wrap items-center justify-between gap-3 p-5`}>
+          <div className={`flex items-center gap-2 text-sm ${subtle}`}>
             <Wallet className="h-4 w-4" />
             {!allValidated
               ? "En attente que tous les paiements soient validés."
@@ -376,7 +361,7 @@ export default function PaymentsPanel({
           <button
             onClick={handleCloseTurn}
             disabled={!allValidated || !payoutConfirmed || closing}
-            className="rounded-md bg-[#00D492] px-4 py-2 text-sm font-medium text-black transition-colors hover:bg-[#00c184] disabled:cursor-not-allowed disabled:opacity-40"
+            className={btnPrimary}
           >
             {closing ? "Clôture..." : "Clôturer le tour"}
           </button>
@@ -385,4 +370,3 @@ export default function PaymentsPanel({
     </div>
   );
 }
- 
