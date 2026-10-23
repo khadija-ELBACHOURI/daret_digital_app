@@ -2,11 +2,19 @@
 
 import type { FormEvent } from "react";
 import { useState } from "react";
+import Link from "next/link";
 import { Loader2, Search, Users, Wallet } from "lucide-react";
 import { getInvitePreview, joinByInvite, type InvitePreview } from "@/lib/api";
-
-const inputClass =
-  "w-full rounded-md border border-[#26282C] bg-[#101113] px-3 py-2 text-sm text-white placeholder-gray-600 outline-none transition-colors focus:border-[#00D492]";
+import {
+  btnPrimary,
+  btnSecondary,
+  card,
+  display,
+  errorBox,
+  inputClass,
+  pageTitle,
+  subtle,
+} from "@/components/ui";
 
 export default function RejoindreDaretPage() {
   const [code, setCode] = useState("");
@@ -29,7 +37,7 @@ export default function RejoindreDaretPage() {
     try {
       setFound(await getInvitePreview(trimmed));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Une erreur est survenue. Reessayez.");
+      setError(err instanceof Error ? err.message : "Une erreur est survenue. Réessayez.");
     } finally {
       setSearching(false);
     }
@@ -45,7 +53,7 @@ export default function RejoindreDaretPage() {
       await joinByInvite(code);
       setJoined(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Une erreur est survenue. Reessayez.");
+      setError(err instanceof Error ? err.message : "Une erreur est survenue. Réessayez.");
     } finally {
       setJoining(false);
     }
@@ -57,53 +65,46 @@ export default function RejoindreDaretPage() {
 
   return (
     <div className="max-w-lg">
-      <h1 className="mb-1 text-2xl font-semibold text-white">Rejoindre une daret</h1>
-      <p className="mb-6 text-sm text-gray-400">Entrez le code d'invitation partagé par l'organisateur.</p>
+      <h1 className={`${pageTitle} mb-1`}>Rejoindre une daret</h1>
+      <p className={`mb-6 text-sm ${subtle}`}>Entrez le code d&apos;invitation partagé par l&apos;organisateur.</p>
 
       <form onSubmit={handleSearch} className="mb-6 flex gap-2">
         <input
           value={code}
           onChange={(e) => setCode(e.target.value)}
           placeholder="Ex. DARET-8F2K1"
+          aria-label="Code d'invitation"
           className={inputClass}
         />
-        <button
-          type="submit"
-          disabled={searching || !code.trim()}
-          className="flex items-center gap-2 whitespace-nowrap rounded-md bg-[#00D492] px-4 py-2 text-sm font-medium text-black transition-colors hover:bg-[#00c184] disabled:cursor-not-allowed disabled:opacity-50"
-        >
+        <button type="submit" disabled={searching || !code.trim()} className={`${btnPrimary} whitespace-nowrap`}>
           {searching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
           Rechercher
         </button>
       </form>
 
-      {error && <p className="mb-4 text-sm text-red-400">{error}</p>}
+      {error && <p role="alert" className={`mb-4 ${errorBox}`}>{error}</p>}
 
       {found && !joined && (
-        <div className="rounded-lg border border-[#1F2023] bg-[#101113] p-5">
-          <h2 className="mb-3 text-lg font-medium text-white">{found.nom}</h2>
-          <div className="mb-4 space-y-2 text-sm text-gray-400">
+        <div className={`${card} p-6`}>
+          <h2 className={`${display} mb-4 text-xl font-bold text-[#0E1442]`}>{found.nom}</h2>
+          <div className="mb-5 space-y-2 text-sm text-[#0E1442]">
             <div className="flex items-center gap-2">
-              <Wallet className="h-4 w-4" />
+              <Wallet className="h-4 w-4 text-[#1B2A9B]" />
               {found.montant.toLocaleString("fr-FR")} MAD · {found.frequence.toLowerCase()}
             </div>
             <div className="flex items-center gap-2">
-              <Users className="h-4 w-4" />
+              <Users className="h-4 w-4 text-[#1B2A9B]" />
               {found.membresActuels}/{found.nombreMembres} membres · {found.nombreMembres} tours
             </div>
           </div>
 
           {!canJoin && (
-            <p className="mb-3 text-sm text-amber-400">
+            <p className="mb-4 rounded-xl bg-[#FFF3D1] px-4 py-3 text-sm text-[#8A5A00]">
               {isFull ? "Cette daret est complète." : "Cette daret n'accepte plus de nouveaux membres."}
             </p>
           )}
 
-          <button
-            onClick={handleJoin}
-            disabled={joining || !canJoin}
-            className="flex w-full items-center justify-center gap-2 rounded-md bg-[#00D492] px-4 py-2.5 text-sm font-medium text-black transition-colors hover:bg-[#00c184] disabled:cursor-not-allowed disabled:opacity-50"
-          >
+          <button onClick={handleJoin} disabled={joining || !canJoin} className={`${btnPrimary} w-full`}>
             {joining && <Loader2 className="h-4 w-4 animate-spin" />}
             Rejoindre cette daret
           </button>
@@ -111,8 +112,13 @@ export default function RejoindreDaretPage() {
       )}
 
       {joined && found && (
-        <div className="rounded-lg border border-[#1F2023] bg-[#0F1A15] p-5 text-sm text-[#00D492]">
-          Vous avez rejoint {found.nom}. Elle apparaît maintenant dans "Mes daret".
+        <div className="rounded-2xl border-2 border-[#3DDBC2]/50 bg-[#DDF7F2] p-6">
+          <p className="mb-4 text-sm font-medium text-[#0B7A69]">
+            Vous avez rejoint {found.nom}. Elle apparaît maintenant dans &quot;Mes daret&quot;.
+          </p>
+          <Link href="/membre/daret" className={btnSecondary}>
+            Voir mes daret
+          </Link>
         </div>
       )}
     </div>

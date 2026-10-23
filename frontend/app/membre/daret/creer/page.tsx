@@ -4,9 +4,7 @@ import type { ChangeEvent, FormEvent, ReactNode } from "react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createDaret } from "@/lib/api";
-
-const inputClass =
-  "w-full rounded-md border border-[#26282C] bg-[#101113] px-3 py-2 text-sm text-white placeholder-gray-600 outline-none transition-colors focus:border-[#00D492]";
+import { btnPrimary, card, errorBox, inputClass, labelClass, pageTitle, subtle } from "@/components/ui";
 
 export default function CreerDaretPage() {
   const router = useRouter();
@@ -19,14 +17,15 @@ export default function CreerDaretPage() {
     description: "",
   });
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   function handleChange(e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) {
     setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
   }
 
-
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
+    setError(null);
     setSubmitting(true);
     try {
       const group = await createDaret({
@@ -39,7 +38,7 @@ export default function CreerDaretPage() {
       });
       router.push(`/membre/daret/${group.id}`);
     } catch (err) {
-      console.error(err);
+      setError(err instanceof Error ? err.message : "Création impossible. Réessayez.");
     } finally {
       setSubmitting(false);
     }
@@ -47,17 +46,17 @@ export default function CreerDaretPage() {
 
   return (
     <div className="max-w-xl">
-      <h1 className="mb-1 text-2xl font-semibold text-white">Créer une daret</h1>
-      <p className="mb-6 text-sm text-gray-400">
-        Définissez les règles du groupe. Vous pourrez inviter des membres une fois créée.
+      <h1 className={`${pageTitle} mb-1`}>Créer une daret</h1>
+      <p className={`mb-6 text-sm ${subtle}`}>
+        Définissez les règles du groupe. Vous pourrez inviter des membres une fois la daret créée.
       </p>
 
-      <form onSubmit={handleSubmit} className="space-y-5">
+      <form onSubmit={handleSubmit} className={`${card} space-y-5 p-6`}>
         <Field label="Nom de la daret">
           <input name="nom" value={form.nom} onChange={handleChange} required placeholder="Ex. Daret Bureau" className={inputClass} />
         </Field>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="Montant par tour (MAD)">
             <input
               type="number"
@@ -84,7 +83,7 @@ export default function CreerDaretPage() {
           </Field>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="Fréquence">
             <select name="frequence" value={form.frequence} onChange={handleChange} className={inputClass}>
               <option value="hebdomadaire">Hebdomadaire</option>
@@ -107,11 +106,9 @@ export default function CreerDaretPage() {
           />
         </Field>
 
-        <button
-          type="submit"
-          disabled={submitting}
-          className="w-full rounded-md bg-[#00D492] px-4 py-2.5 text-sm font-medium text-black transition-colors hover:bg-[#00c184] disabled:opacity-60"
-        >
+        {error && <p role="alert" className={errorBox}>{error}</p>}
+
+        <button type="submit" disabled={submitting} className={`${btnPrimary} w-full`}>
           {submitting ? "Création..." : "Créer la daret"}
         </button>
       </form>
@@ -122,7 +119,7 @@ export default function CreerDaretPage() {
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <label className="block">
-      <span className="mb-1.5 block text-sm text-gray-300">{label}</span>
+      <span className={labelClass}>{label}</span>
       {children}
     </label>
   );
