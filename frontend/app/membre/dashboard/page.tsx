@@ -88,7 +88,7 @@ export default function DashboardPage() {
   const perTurn = active.reduce((sum, g) => sum + g.montant, 0);
 
   return (
-    <div className="max-w-5xl">
+    <div>
       <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className={pageTitle}>Bonjour{firstname ? `, ${firstname}` : ""}</h1>
