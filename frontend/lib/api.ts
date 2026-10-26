@@ -257,6 +257,20 @@ export async function getGroupMembers(groupId: string): Promise<MemberResponse[]
   return handleResponse<MemberResponse[]>(res);
 }
 
+export interface MemberContact {
+  phone: string | null;
+  iban: string | null;
+}
+
+// Organizer only: phone and IBAN of a member of the group.
+export async function getMemberContact(groupId: string, userId: string): Promise<MemberContact> {
+  const token = getToken();
+  const res = await fetch(`${API_URL}/api/groups/${groupId}/members/${userId}/contact`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return handleResponse<MemberContact>(res);
+}
+
 export async function addMember(groupId: string, email: string): Promise<void> {
   const token = getToken();
 
