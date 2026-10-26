@@ -2,8 +2,10 @@
 
 import type { FormEvent, ReactNode } from "react";
 import { useEffect, useState } from "react";
+import { CheckCircle2 } from "lucide-react";
 import { getMyProfile, updateMyProfile, changeMyPassword } from "@/lib/api";
 import PasswordInput from "@/components/PasswordInput";
+import { formatIban, ibanProblem, normalizeIban } from "@/lib/iban";
 import {
   btnPrimary,
   btnSecondary,
@@ -27,6 +29,7 @@ export default function ProfilPage() {
   const [savingProfile, setSavingProfile] = useState(false);
   const [savedProfile, setSavedProfile] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
+  const [ibanTouched, setIbanTouched] = useState(false);
 
   const [savingPassword, setSavingPassword] = useState(false);
   const [savedPassword, setSavedPassword] = useState(false);
@@ -40,26 +43,37 @@ export default function ProfilPage() {
           lastname: u.lastname ?? "",
           email: u.email ?? "",
           phone: u.phone ?? "",
-          iban: u.iban ?? "",
+          iban: formatIban(u.iban ?? ""),
         })
       )
       .catch((err: Error) => setLoadError(err.message))
       .finally(() => setLoading(false));
   }, []);
 
+  const ibanMessage = ibanProblem(profile.iban);
+  const ibanFilled = normalizeIban(profile.iban) !== "";
+  const showIbanError = ibanTouched && ibanMessage !== null;
+
   async function handleProfileSubmit(e: FormEvent) {
     e.preventDefault();
     setProfileError(null);
+
+    if (ibanMessage) {
+      setIbanTouched(true);
+      return;
+    }
+
     setSavingProfile(true);
     try {
-      const u = await updateMyProfile(profile);
+      const u = await updateMyProfile({ ...profile, iban: normalizeIban(profile.iban) });
       setProfile({
         firstname: u.firstname ?? "",
         lastname: u.lastname ?? "",
         email: u.email ?? "",
         phone: u.phone ?? "",
-        iban: u.iban ?? "",
+        iban: formatIban(u.iban ?? ""),
       });
+      setIbanTouched(false);
       setSavedProfile(true);
       setTimeout(() => setSavedProfile(false), 2000);
     } catch (err) {
@@ -142,11 +156,31 @@ export default function ProfilPage() {
             />
           </Field>
           <Field label="IBAN (pour recevoir vos tours)">
-            <input
-              value={profile.iban}
-              onChange={(e) => setProfile((p) => ({ ...p, iban: e.target.value }))}
-              className={inputClass}
-            />
+            <div className="relative">
+              <input
+                value={profile.iban}
+                onChange={(e) => setProfile((p) => ({ ...p, iban: formatIban(e.target.value) }))}
+                onBlur={() => setIbanTouched(true)}
+                maxLength={42}
+                autoComplete="off"
+                spellCheck={false}
+                placeholder="MA00 0000 0000 0000 0000 0000 0000"
+                aria-invalid={showIbanError}
+                aria-describedby={showIbanError ? "iban-error" : undefined}
+                className={`${inputClass} pr-11 font-mono tracking-wide ${showIbanError ? "!border-[#D9483B]" : ""}`}
+              />
+              {ibanFilled && ibanMessage === null && (
+                <CheckCircle2
+                  className="pointer-events-none absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-[#1FB89F]"
+                  aria-hidden="true"
+                />
+              )}
+            </div>
+            {showIbanError && (
+              <span id="iban-error" role="alert" className="mt-1.5 block text-sm text-[#B3261E]">
+                {ibanMessage}
+              </span>
+            )}
           </Field>
 
           {profileError && <p role="alert" className={errorBox}>{profileError}</p>}
