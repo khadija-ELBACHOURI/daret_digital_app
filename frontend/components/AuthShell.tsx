@@ -1,7 +1,9 @@
 "use client";
 
-import type { ReactNode } from "react";
-import { useEffect, useState } from "react";
+import type { CSSProperties, ReactNode } from "react";
+import Link from "next/link";
+import { Coins } from "lucide-react";
+import { useRef } from "react";
 import { display } from "@/components/ui";
 
 const BLUE_DEEP = "#121B6B";
@@ -9,93 +11,8 @@ const BLUE = "#1B2A9B";
 const SAFFRON = "#FFB81C";
 const MINT = "#3DDBC2";
 
-const MEMBERS = ["Y", "S", "O", "N", "K", "H", "I", "A"];
-const RING_RADIUS = 110;
-
-const css = `
-.dd-disc { transition: fill 500ms ease, stroke 500ms ease, transform 500ms ease; }
-@media (prefers-reduced-motion: reduce) { .dd-disc { transition: none; } }
-`;
-
-function TurnCircle({ startIndex }: { startIndex: number }) {
-  const [active, setActive] = useState(startIndex);
-
-  // The turn moves to the next member every few seconds, like a real daret.
-  useEffect(() => {
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reduce) return;
-    const id = setInterval(() => setActive((a) => (a + 1) % MEMBERS.length), 2400);
-    return () => clearInterval(id);
-  }, []);
-
-  const fontDisplay = "var(--font-display), system-ui, sans-serif";
-  const fontSans = "var(--font-sans), system-ui, sans-serif";
-
-  return (
-    <svg viewBox="0 0 300 300" className="h-full w-full" role="img" aria-label={`Tour ${active + 1} sur ${MEMBERS.length}`}>
-      <circle cx="150" cy="150" r={RING_RADIUS} fill="none" stroke="white" strokeOpacity="0.14" strokeWidth="1.5" strokeDasharray="2 7" strokeLinecap="round" />
-
-      {MEMBERS.map((letter, i) => {
-        const angle = ((-90 + i * (360 / MEMBERS.length)) * Math.PI) / 180;
-        const cx = 150 + RING_RADIUS * Math.cos(angle);
-        const cy = 150 + RING_RADIUS * Math.sin(angle);
-        const isActive = i === active;
-        const isDone = i < active;
-
-        return (
-          <g key={i} className="dd-disc" style={{ transformOrigin: `${cx}px ${cy}px`, transform: isActive ? "scale(1.18)" : "scale(1)" }}>
-            <circle
-              className="dd-disc"
-              cx={cx}
-              cy={cy}
-              r="21"
-              fill={isActive ? SAFFRON : isDone ? "rgba(61,219,194,0.22)" : "rgba(255,255,255,0.04)"}
-              stroke={isActive ? SAFFRON : isDone ? MINT : "rgba(255,255,255,0.3)"}
-              strokeWidth="1.5"
-            />
-            <text x={cx} y={cy + 5} textAnchor="middle" fontSize="15" fontWeight="700" fill={isActive ? BLUE_DEEP : isDone ? MINT : "rgba(255,255,255,0.75)"} style={{ fontFamily: fontDisplay }}>
-              {letter}
-            </text>
-          </g>
-        );
-      })}
-
-      <text x="150" y="128" textAnchor="middle" fontSize="13" fill="rgba(255,255,255,0.6)" style={{ fontFamily: fontSans }}>
-        Tour
-      </text>
-      <text x="150" y="176" textAnchor="middle" fontSize="56" fontWeight="800" fill="white" style={{ fontFamily: fontDisplay }}>
-        {active + 1}
-      </text>
-      <text x="150" y="198" textAnchor="middle" fontSize="13" fill="rgba(255,255,255,0.6)" style={{ fontFamily: fontSans }}>
-        sur {MEMBERS.length}
-      </text>
-    </svg>
-  );
-}
-
-// Eight-point star tiling, inspired by zellige tilework.
-function ZelligePattern() {
-  return (
-    <svg className="absolute inset-0 h-full w-full" aria-hidden="true">
-      <defs>
-        <pattern id="zellige" width="72" height="72" patternUnits="userSpaceOnUse">
-          <g fill="none" stroke="white" strokeOpacity="0.07" strokeWidth="1">
-            <rect x="16" y="16" width="40" height="40" />
-            <rect x="16" y="16" width="40" height="40" transform="rotate(45 36 36)" />
-            <circle cx="36" cy="36" r="6" />
-            <path d="M0 0 L16 16 M72 0 L56 16 M0 72 L16 56 M72 72 L56 56" />
-          </g>
-        </pattern>
-        <radialGradient id="glow" cx="50%" cy="48%" r="55%">
-          <stop offset="0%" stopColor={BLUE} stopOpacity="0" />
-          <stop offset="100%" stopColor={BLUE_DEEP} stopOpacity="0.9" />
-        </radialGradient>
-      </defs>
-      <rect width="100%" height="100%" fill="url(#zellige)" />
-      <rect width="100%" height="100%" fill="url(#glow)" />
-    </svg>
-  );
-}
+export const authButton =
+  "inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#1B2A9B] py-3.5 text-base font-semibold text-white transition-colors hover:bg-[#121B6B] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FFB81C]/50 disabled:cursor-not-allowed disabled:opacity-60";
 
 export function LogoMark({ dark = false }: { dark?: boolean }) {
   return (
@@ -111,42 +28,253 @@ export function LogoMark({ dark = false }: { dark?: boolean }) {
   );
 }
 
+const css = `
+.vt-tilt { transform: perspective(1100px) rotateY(calc(var(--mx, 0) * 9deg)) rotateX(calc(var(--my, 0) * -7deg)); transition: transform 180ms ease-out; will-change: transform; }
+.vt-dial, .vt-handle { transform-box: fill-box; transform-origin: center; transition: transform 260ms cubic-bezier(.3,1.3,.5,1); }
+.vt-dial { transform: rotate(calc(var(--mx, 0) * 150deg)); }
+.vt-handle { transform: rotate(calc(var(--mx, 0) * -60deg)); }
+.vt-coin { transform-box: fill-box; transform-origin: center; animation: vt-float 5s ease-in-out infinite; }
+@keyframes vt-float { 0%,100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-10px) rotate(8deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .vt-tilt, .vt-dial, .vt-handle { transform: none; transition: none; }
+  .vt-coin { animation: none; }
+}
+`;
+
+const STAR_POINTS = Array.from({ length: 24 }, (_, i) => i);
+
+function Vault() {
+  // Stacked, slightly offset copies of the body give the box its depth.
+  const layers = Array.from({ length: 15 }, (_, i) => i / 14);
+
+  return (
+    <svg viewBox="0 0 400 400" className="h-full w-full overflow-visible" role="img" aria-label="Un coffre-fort qui garde la cagnotte du groupe">
+      <defs>
+        <linearGradient id="vt-side" x1="0" y1="1" x2="1" y2="0">
+          <stop offset="0" stopColor="#1B2A9B" />
+          <stop offset="1" stopColor="#6F8CF5" />
+        </linearGradient>
+        <linearGradient id="vt-front" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#4C6AEB" />
+          <stop offset="1" stopColor="#2437B5" />
+        </linearGradient>
+        <linearGradient id="vt-door" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#3550D8" />
+          <stop offset="1" stopColor="#1B2A9B" />
+        </linearGradient>
+        <linearGradient id="vt-dialring" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#7DF0DC" />
+          <stop offset="1" stopColor="#1FB89F" />
+        </linearGradient>
+        <filter id="vt-blur" x="-20%" y="-50%" width="140%" height="200%">
+          <feGaussianBlur stdDeviation="9" />
+        </filter>
+      </defs>
+
+      <ellipse cx="190" cy="356" rx="150" ry="15" fill="rgba(18,27,107,0.28)" filter="url(#vt-blur)" />
+
+      {/* body depth */}
+      {layers
+        .slice()
+        .reverse()
+        .map((t) => (
+          <rect
+            key={t}
+            x={66 + 40 * t}
+            y={100 - 30 * t}
+            width="232"
+            height="232"
+            rx="36"
+            fill="url(#vt-side)"
+            stroke="rgba(255,255,255,0.07)"
+          />
+        ))}
+
+      {/* front plate */}
+      <rect x="66" y="100" width="232" height="232" rx="36" fill="url(#vt-front)" stroke="rgba(255,255,255,0.28)" strokeWidth="1.5" />
+      <rect x="88" y="122" width="188" height="188" rx="26" fill="url(#vt-door)" stroke="rgba(255,255,255,0.2)" strokeWidth="1.5" />
+
+      {/* bolts */}
+      {[
+        [102, 136],
+        [262, 136],
+        [102, 296],
+        [262, 296],
+      ].map(([x, y]) => (
+        <circle key={`${x}-${y}`} cx={x} cy={y} r="3.5" fill="rgba(255,255,255,0.35)" />
+      ))}
+
+      {/* dial */}
+      <circle cx="160" cy="216" r="58" fill="url(#vt-dialring)" />
+      <circle cx="160" cy="216" r="49" fill={BLUE_DEEP} />
+      <g className="vt-dial">
+        <g transform="translate(160 216)">
+          {STAR_POINTS.map((i) => (
+            <line
+              key={i}
+              x1="0"
+              y1="-45"
+              x2="0"
+              y2={i % 6 === 0 ? -37 : -41}
+              stroke="rgba(255,255,255,0.55)"
+              strokeWidth={i % 6 === 0 ? 2.4 : 1.4}
+              strokeLinecap="round"
+              transform={`rotate(${i * 15})`}
+            />
+          ))}
+          <g fill="none" stroke={SAFFRON} strokeWidth="2.4" strokeLinejoin="round">
+            <rect x="-22" y="-22" width="44" height="44" rx="4" />
+            <rect x="-22" y="-22" width="44" height="44" rx="4" transform="rotate(45)" />
+          </g>
+          <circle r="7" fill={SAFFRON} />
+        </g>
+      </g>
+
+      {/* handle */}
+      <g className="vt-handle">
+        <g transform="translate(240 216)" stroke="#E8EDFF" strokeWidth="8" strokeLinecap="round">
+          <line x1="0" y1="0" x2="0" y2="-30" />
+          <line x1="0" y1="0" x2="26" y2="15" />
+          <line x1="0" y1="0" x2="-26" y2="15" />
+          <circle r="13" fill="#E8EDFF" stroke="none" />
+          <circle r="5" fill={BLUE} stroke="none" />
+        </g>
+      </g>
+
+      {/* feet */}
+      <rect x="100" y="332" width="48" height="14" rx="5" fill={BLUE_DEEP} />
+      <rect x="216" y="332" width="48" height="14" rx="5" fill={BLUE_DEEP} />
+
+      {/* coins */}
+      {[
+        { x: 352, y: 86, r: 17, d: "0s" },
+        { x: 44, y: 150, r: 12, d: "-1.6s" },
+        { x: 356, y: 250, r: 13, d: "-3.1s" },
+      ].map((c) => (
+        <g key={c.d} className="vt-coin" style={{ animationDelay: c.d } as CSSProperties}>
+          <circle cx={c.x} cy={c.y} r={c.r} fill={SAFFRON} />
+          <circle cx={c.x} cy={c.y} r={c.r * 0.58} fill="none" stroke={BLUE_DEEP} strokeOpacity="0.4" strokeWidth="1.6" />
+          <path
+            d={`M ${c.x - c.r * 0.6} ${c.y - c.r * 0.35} A ${c.r * 0.72} ${c.r * 0.72} 0 0 1 ${c.x + c.r * 0.1} ${c.y - c.r * 0.72}`}
+            fill="none"
+            stroke="rgba(255,255,255,0.7)"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+          />
+        </g>
+      ))}
+    </svg>
+  );
+}
+
+function VaultPanel() {
+  const ref = useRef<HTMLDivElement>(null);
+
+  function onMove(e: React.MouseEvent<HTMLDivElement>) {
+    const el = ref.current;
+    if (!el) return;
+    const r = e.currentTarget.getBoundingClientRect();
+    const mx = ((e.clientX - r.left) / r.width) * 2 - 1;
+    const my = ((e.clientY - r.top) / r.height) * 2 - 1;
+    el.style.setProperty("--mx", mx.toFixed(3));
+    el.style.setProperty("--my", my.toFixed(3));
+  }
+
+  function onLeave() {
+    const el = ref.current;
+    if (!el) return;
+    el.style.setProperty("--mx", "0");
+    el.style.setProperty("--my", "0");
+  }
+
+  return (
+    <div
+      className="relative hidden w-1/2 items-center justify-center overflow-hidden lg:flex"
+      style={{ background: "linear-gradient(160deg, #EEF3FF 0%, #C9D8FB 42%, #8FA9F0 100%)" }}
+      onMouseMove={onMove}
+      onMouseLeave={onLeave}
+    >
+      <style>{css}</style>
+
+      {/* soft light streaks */}
+      {[
+        { left: "12%", top: "52%", h: 150 },
+        { left: "30%", top: "8%", h: 110 },
+        { left: "70%", top: "62%", h: 170 },
+        { left: "88%", top: "22%", h: 130 },
+      ].map((s) => (
+        <span
+          key={s.left}
+          className="absolute w-3 rounded-full bg-white/40 blur-[2px]"
+          style={{ left: s.left, top: s.top, height: s.h }}
+          aria-hidden="true"
+        />
+      ))}
+
+      <div ref={ref} className="vt-tilt relative aspect-square w-[68%] max-w-[460px]">
+        <Vault />
+
+        <div className="absolute -left-2 bottom-[8%] flex items-center gap-3 rounded-2xl border border-white/60 bg-white/70 px-4 py-3 shadow-[0_8px_24px_rgba(18,27,107,0.18)] backdrop-blur">
+          <span
+            className="flex h-9 w-9 items-center justify-center rounded-full"
+            style={{ backgroundColor: SAFFRON, color: BLUE_DEEP }}
+          >
+            <Coins className="h-4 w-4" />
+          </span>
+          <div>
+            <p className="text-[11px] font-medium text-[#5B6190]">Cagnotte du tour</p>
+            <p className={`${display} text-lg font-extrabold leading-tight text-[#0E1442]`}>1 600 MAD</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 interface AuthShellProps {
-  headline: ReactNode;
-  tagline: string;
-  startIndex?: number;
+  mode: "login" | "register";
+  title: string;
+  subtitle: string;
   children: ReactNode;
 }
 
-export default function AuthShell({ headline, tagline, startIndex = 2, children }: AuthShellProps) {
+export default function AuthShell({ mode, title, subtitle, children }: AuthShellProps) {
+  const tab = (active: boolean) =>
+    `rounded-xl py-2.5 text-center text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FFB81C]/40 ${
+      active ? "bg-white text-[#0E1442] shadow-[0_1px_3px_rgba(18,27,107,0.14)]" : "text-[#5B6190] hover:text-[#0E1442]"
+    }`;
+
   return (
-    <div className="flex min-h-screen bg-[#F4F6FB]">
-      <style>{css}</style>
-
-      <div className="relative hidden w-[55%] flex-col justify-between overflow-hidden p-12 lg:flex" style={{ backgroundColor: BLUE }}>
-        <ZelligePattern />
-        <div className="relative">
-          <LogoMark />
+    <div className="flex min-h-screen bg-white">
+      <div className="flex w-full flex-col lg:w-1/2">
+        <div className="px-6 pt-7 sm:px-10">
+          <LogoMark dark />
         </div>
 
-        <div className="relative mx-auto aspect-square w-full max-w-[420px]">
-          <TurnCircle startIndex={startIndex} />
-        </div>
+        <div className="flex flex-1 items-center justify-center px-6 py-10">
+          <div className="w-full max-w-[380px]">
+            <h1 className={`${display} text-center text-[32px] font-extrabold leading-tight text-[#0E1442]`}>{title}</h1>
+            <p className="mt-1.5 text-center text-sm text-[#5B6190]">{subtitle}</p>
 
-        <div className="relative max-w-md">
-          <h2 className={`${display} text-5xl font-extrabold leading-[1.05] text-white`}>{headline}</h2>
-          <p className="mt-4 text-[15px] leading-relaxed text-white/70">{tagline}</p>
-        </div>
-      </div>
+            <nav aria-label="Connexion ou inscription" className="mt-7 grid grid-cols-2 rounded-2xl bg-[#F1F3F9] p-1">
+              <Link href="/login" aria-current={mode === "login" ? "page" : undefined} className={tab(mode === "login")}>
+                Connexion
+              </Link>
+              <Link href="/register" aria-current={mode === "register" ? "page" : undefined} className={tab(mode === "register")}>
+                Inscription
+              </Link>
+            </nav>
 
-      <div className="flex w-full flex-col justify-center px-6 py-12 sm:px-12 lg:w-[45%] lg:px-16">
-        <div className="mx-auto w-full max-w-sm">
-          <div className="mb-10 lg:hidden">
-            <LogoMark dark />
+            {children}
           </div>
-          {children}
         </div>
+
+        <p className="mx-auto max-w-sm px-6 pb-8 text-center text-xs leading-relaxed text-[#6B7199]">
+          Cotisez, suivez chaque tour et recevez la cagnotte en toute transparence, avec vos proches.
+        </p>
       </div>
+
+      <VaultPanel />
     </div>
   );
 }
