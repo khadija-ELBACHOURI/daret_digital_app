@@ -34,7 +34,7 @@ export default function MesDaretPage() {
   }, []);
 
   return (
-    <div className="max-w-5xl">
+    <div>
       <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className={pageTitle}>Mes daret</h1>
