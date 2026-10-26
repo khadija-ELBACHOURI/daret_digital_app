@@ -254,6 +254,23 @@ public class GroupController {
         return ResponseEntity.ok(response);
     }
 
+    // Phone and IBAN are private: only the organizer of this group can read them,
+    // and they are deliberately NOT part of the member list that every member can fetch.
+    @GetMapping("/{groupId}/members/{userId}/contact")
+    @PreAuthorize("@groupSecurity.hasRole(#groupId, authentication.name, 'ORGANISATEUR')")
+    public ResponseEntity<?> memberContact(@PathVariable UUID groupId, @PathVariable UUID userId) {
+        GroupMembership target = membershipRepository.findByGroupId(groupId).stream()
+                .filter(m -> m.getUser().getId().equals(userId))
+                .findFirst()
+                .orElse(null);
+        if (target == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Membre introuvable dans ce groupe");
+        }
+
+        User user = target.getUser();
+        return ResponseEntity.ok(new MemberContactResponse(user.getPhone(), user.getIban()));
+    }
+
     @DeleteMapping("/{groupId}/members/{userId}")
     @PreAuthorize("@groupSecurity.hasRole(#groupId, authentication.name, 'ORGANISATEUR')")
     public ResponseEntity<?> removeMember(@PathVariable UUID groupId, @PathVariable UUID userId) {
@@ -355,6 +372,7 @@ record UpdateGroupRequest(
 
 record AddMemberRequest(String email) {}
 record AssignPositionRequest(Integer position) {}
+record MemberContactResponse(String phone, String iban) {}
 
 
 record InvitePreviewResponse(
