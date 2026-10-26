@@ -1,11 +1,11 @@
 "use client";
 
 import { useState, FormEvent } from "react";
-import Link from "next/link";
+import { Lock, Mail, User } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
-import AuthShell from "@/components/AuthShell";
-import PasswordInput from "@/components/PasswordInput";
-import { btnPrimary, display, errorBox, inputClass, labelClass } from "@/components/ui";
+import AuthShell, { authButton } from "@/components/AuthShell";
+import AuthField from "@/components/AuthField";
+import { errorBox } from "@/components/ui";
 
 export default function RegisterPage() {
   const { register } = useAuth();
@@ -40,77 +40,46 @@ export default function RegisterPage() {
   }
 
   return (
-    <AuthShell
-      startIndex={5}
-      headline={
-        <>
-          Rejoignez
-          <br />
-          le cercle.
-        </>
-      }
-      tagline="Créez votre compte pour organiser une daret entre proches, ou rejoindre un groupe existant en quelques minutes."
-    >
-      <h1 className={`${display} text-4xl font-extrabold text-[#0E1442]`}>Créer un compte</h1>
-      <p className="mt-2 text-[15px] text-[#5B6190]">Rejoignez Daret Digital en quelques instants.</p>
-
-      <form onSubmit={handleSubmit} className="mt-8 space-y-5">
-        <div>
-          <label htmlFor="nom" className={labelClass}>
-            Nom complet
-          </label>
-          <input
-            id="nom"
-            type="text"
-            required
-            autoComplete="name"
-            value={nom}
-            onChange={(e) => setNom(e.target.value)}
-            className={inputClass}
-            placeholder="Prénom Nom"
-          />
-        </div>
-
-        <div>
-          <label htmlFor="email" className={labelClass}>
-            Email
-          </label>
-          <input
-            id="email"
-            type="email"
-            required
-            autoComplete="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className={inputClass}
-            placeholder="vous@exemple.com"
-          />
-        </div>
-
-        <div>
-          <label htmlFor="password" className={labelClass}>
-            Mot de passe
-          </label>
-          <PasswordInput
-            id="password"
-            value={motDePasse}
-            onChange={setMotDePasse}
-            autoComplete="new-password"
-            placeholder="8 caractères minimum"
-          />
-        </div>
-
-        <div>
-          <label htmlFor="confirmation" className={labelClass}>
-            Confirmer le mot de passe
-          </label>
-          <PasswordInput
-            id="confirmation"
-            value={confirmation}
-            onChange={setConfirmation}
-            autoComplete="new-password"
-          />
-        </div>
+    <AuthShell mode="register" title="Créer un compte" subtitle="Rejoignez Daret Digital en quelques instants.">
+      <form onSubmit={handleSubmit} className="mt-6 space-y-3.5">
+        <AuthField
+          id="nom"
+          label="Nom complet"
+          icon={<User className="h-5 w-5" />}
+          autoComplete="name"
+          placeholder="Prénom Nom"
+          value={nom}
+          onChange={setNom}
+        />
+        <AuthField
+          id="email"
+          type="email"
+          label="Adresse email"
+          icon={<Mail className="h-5 w-5" />}
+          autoComplete="email"
+          placeholder="vous@exemple.com"
+          value={email}
+          onChange={setEmail}
+        />
+        <AuthField
+          id="password"
+          type="password"
+          label="Mot de passe"
+          icon={<Lock className="h-5 w-5" />}
+          autoComplete="new-password"
+          placeholder="8 caractères minimum"
+          value={motDePasse}
+          onChange={setMotDePasse}
+        />
+        <AuthField
+          id="confirmation"
+          type="password"
+          label="Confirmer le mot de passe"
+          icon={<Lock className="h-5 w-5" />}
+          autoComplete="new-password"
+          value={confirmation}
+          onChange={setConfirmation}
+        />
 
         {error && (
           <p role="alert" className={errorBox}>
@@ -118,20 +87,10 @@ export default function RegisterPage() {
           </p>
         )}
 
-        <button type="submit" disabled={isSubmitting} className={`${btnPrimary} w-full py-3.5 text-base`}>
+        <button type="submit" disabled={isSubmitting} className={`${authButton} mt-2`}>
           {isSubmitting ? "Création en cours..." : "Créer mon compte"}
         </button>
       </form>
-
-      <p className="mt-8 text-center text-sm text-[#5B6190]">
-        Déjà inscrit ?{" "}
-        <Link
-          href="/login"
-          className="font-semibold text-[#1B2A9B] underline decoration-[#FFB81C] decoration-2 underline-offset-4 hover:decoration-[#1B2A9B]"
-        >
-          Se connecter
-        </Link>
-      </p>
     </AuthShell>
   );
 }
