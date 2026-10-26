@@ -2,6 +2,7 @@ package daret_digital.com.controller;
 
 import daret_digital.com.domain.User;
 import daret_digital.com.repository.UtilisateurRepository;
+import daret_digital.com.util.IbanValidator;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -43,11 +44,17 @@ public class UserController {
             return ResponseEntity.badRequest().body("Prenom et nom obligatoires");
         }
 
+        // Empty IBAN is allowed (-> null). A filled one must be a valid IBAN; it is stored without spaces, uppercase.
+        String iban = IbanValidator.normalize(request.iban());
+        if (iban != null && !IbanValidator.isValid(iban)) {
+            return ResponseEntity.badRequest().body("IBAN invalide. Verifiez le numero saisi.");
+        }
+
         // L'email n'est pas modifiable ici : il sert de subject dans le JWT.
         user.setFirstname(request.firstname().trim());
         user.setLastname(request.lastname().trim());
         user.setPhone(blankToNull(request.phone()));
-        user.setIban(blankToNull(request.iban()));
+        user.setIban(iban);
 
         repository.save(user);
         return ResponseEntity.ok(toResponse(user));
