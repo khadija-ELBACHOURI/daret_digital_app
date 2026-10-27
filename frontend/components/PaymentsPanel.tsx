@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { CheckCircle2, Clock, AlertTriangle, Wallet, Gift } from "lucide-react";
+import { CheckCircle2, Clock, AlertTriangle, Wallet, Gift, Download } from "lucide-react";
 import {
   closeTurn,
   confirmCurrentPayout,
@@ -16,6 +16,7 @@ import {
   PaymentStatus,
   PayoutResponse,
 } from "@/lib/api";
+import { downloadReceipt } from "@/lib/receipt";
 import {
   badge,
   btnPrimary,
@@ -45,6 +46,7 @@ const MANUAL_PAYMENTS_ENABLED = process.env.NEXT_PUBLIC_MANUAL_PAYMENTS === "tru
 
 interface PaymentsPanelProps {
   groupId: string;
+  groupName?: string;
   cycle: number;
   totalTurns: number;
   amount: number;
@@ -56,6 +58,7 @@ interface PaymentsPanelProps {
 
 export default function PaymentsPanel({
   groupId,
+  groupName,
   cycle,
   totalTurns,
   amount,
@@ -73,6 +76,7 @@ export default function PaymentsPanel({
   const [generating, setGenerating] = useState(false);
   const [confirmingPayout, setConfirmingPayout] = useState(false);
   const [payingByCard, setPayingByCard] = useState(false);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [returnedFromStripe, setReturnedFromStripe] = useState<"success" | "cancelled" | null>(null);
 
   const loadPayments = useCallback(() => {
@@ -139,6 +143,18 @@ export default function PaymentsPanel({
 
     return () => clearInterval(timer);
   }, [returnedFromStripe, myStatus, loadPayments, loadPayout]);
+
+  async function handleDownloadReceipt(payment: PaymentResponse) {
+    setError(null);
+    setDownloadingId(payment.id);
+    try {
+      await downloadReceipt({ payment, groupName, totalTurns });
+    } catch {
+      setError("Impossible de générer le reçu. Réessayez.");
+    } finally {
+      setDownloadingId(null);
+    }
+  }
 
   async function handlePayByCard() {
     setError(null);
@@ -248,6 +264,7 @@ export default function PaymentsPanel({
             const meta = statusMeta[status];
             const isMe = member.userId === currentUserId;
             const canPay = isMe && (payment?.status === "PENDING" || payment?.status === "LATE");
+            const canDownloadReceipt = payment?.status === "VALIDATED" && (isMe || isOrganisateur);
 
             return (
               <div
@@ -269,6 +286,17 @@ export default function PaymentsPanel({
                       className={btnPrimarySm}
                     >
                       {actioningId === payment.id ? "Validation..." : "Valider"}
+                    </button>
+                  )}
+
+                  {canDownloadReceipt && payment && (
+                    <button
+                      onClick={() => handleDownloadReceipt(payment)}
+                      disabled={downloadingId === payment.id}
+                      className={btnSecondarySm}
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                      {downloadingId === payment.id ? "Génération..." : "Reçu"}
                     </button>
                   )}
 
@@ -312,10 +340,20 @@ export default function PaymentsPanel({
       )}
 
       {myPayment?.status === "VALIDATED" && (
-        <p className="mt-3 flex items-center gap-1.5 text-sm font-medium text-[#0B7A69]">
-          <CheckCircle2 className="h-4 w-4" />
-          Votre cotisation pour ce tour est validée.
-        </p>
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+          <p className="flex items-center gap-1.5 text-sm font-medium text-[#0B7A69]">
+            <CheckCircle2 className="h-4 w-4" />
+            Votre cotisation pour ce tour est validée.
+          </p>
+          <button
+            onClick={() => handleDownloadReceipt(myPayment)}
+            disabled={downloadingId === myPayment.id}
+            className={btnSecondarySm}
+          >
+            <Download className="h-3.5 w-3.5" />
+            {downloadingId === myPayment.id ? "Génération..." : "Télécharger le reçu"}
+          </button>
+        </div>
       )}
 
       {myPayment?.status === "PAID" && (

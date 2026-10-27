@@ -492,6 +492,7 @@ export default function DaretDetailPage() {
         <div id="paiements" className="mb-8 scroll-mt-8">
           <PaymentsPanel
             groupId={id}
+            groupName={group.nom}
             cycle={group.tourActuel}
             totalTurns={group.nombreMembres}
             amount={group.montant}
