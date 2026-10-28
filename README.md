@@ -126,4 +126,4 @@ daret-digital/
 ## Author
 
 **Khadija El Bachouri**
-[LinkedIn](https://linkedin.com/in/khadija-elbachouri) | [GitHub](https://github.com/khadija-ELBACHOURI)
+[LinkedIn](https://linkedin.com/in/khadija-elbachouri) | [GitHub](https://github.com/khadija-ELBACHOURI) | [Portfolio](hadijaelbachouri.me)
