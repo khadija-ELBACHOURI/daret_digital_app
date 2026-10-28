@@ -86,7 +86,7 @@ Use the test card `4242 4242 4242 4242`, any future expiry date, any CVC. Never 
 Stripe cannot reach `localhost`, so forward webhooks with the Stripe CLI and copy the `whsec_...` secret it prints into `.env`:
 
 ```bash
-stripe listen --forward-to localhost:8080/<your-webhook-path>
+stripe listen --api-key sk_test_xxx --events checkout.session.completed,checkout.session.async_payment_succeeded --forward-to localhost:8080/api/stripe/webhook
 ```
 
 ### Option 2: Run without Docker
