@@ -1,5 +1,6 @@
 package daret_digital.com.controller;
 
+import com.stripe.Stripe;
 import daret_digital.com.service.PaymentService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -61,8 +62,8 @@ class StripeWebhookControllerTest {
 
     private static String event(String type, String objectJson) {
         return """
-                {"id":"evt_test_1","object":"event","type":"%s","data":{"object":%s}}"""
-                .formatted(type, objectJson.strip());
+            {"id":"evt_test_1","object":"event","api_version":"%s","type":"%s","data":{"object":%s}}"""
+                .formatted(Stripe.API_VERSION, type, objectJson.strip());
     }
 
     private static String session(String paymentStatus, String metadataJson) {
