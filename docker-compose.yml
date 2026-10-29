@@ -19,16 +19,17 @@ services:
       db:
         condition: service_healthy
     environment:
+      # Read by application.yml
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/${DB_NAME}
       SPRING_DATASOURCE_USERNAME: ${DB_USER}
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
-      SPRING_JPA_HIBERNATE_DDL_AUTO: update
-      PAYMENTS_MANUAL_DECLARATION_ENABLED: ${MANUAL_PAYMENTS}
-      # Map these to the property names used in your application.properties
       JWT_SECRET: ${JWT_SECRET}
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
-      APP_FRONTEND_URL: ${FRONTEND_URL}
+      # Spring maps this env var to payments.manual-declaration-enabled
+      PAYMENTS_MANUAL_DECLARATION_ENABLED: ${MANUAL_PAYMENTS}
+      # Optional overrides (application.yml already has local defaults):
+      # JWT_EXPIRATION, STRIPE_SUCCESS_URL, STRIPE_CANCEL_URL
     ports:
       - "8080:8080"
 
