@@ -1,6 +1,7 @@
+
 # Daret Digital
 
-A full-stack platform to digitize **daret** (tontine) management, the traditional rotating savings system widely used in Morocco. Members contribute a fixed amount each turn, and each turn one member receives the pot. Daret Digital replaces notebooks and WhatsApp messages with a transparent, trackable app.
+A full-stack platform to digitize **daret** (tontine) management, the traditional rotating savings system widely used in Morocco. Members contribute a fixed amount each turn, and each turn one member receives the pot. Daret Digital replaces notebooks and WhatsApp messages with a transparent, trackable app, available on the web and as a mobile app.
 
 ## Demo
 
@@ -8,7 +9,7 @@ A full-stack platform to digitize **daret** (tontine) management, the traditiona
 
 ## Screenshots
 
-<!-- TODO: add 3 screenshots: group page with members, payments panel, receipt PDF -->
+<!-- TODO: add screenshots: group page with members, payments panel, receipt PDF, and the mobile app (dashboard, daret detail) -->
 
 ## Features
 
@@ -18,11 +19,12 @@ A full-stack platform to digitize **daret** (tontine) management, the traditiona
 - **Manual turn order:** the organizer assigns each member's position.
 - **Member contact details:** the organizer can view a member's phone and IBAN, to organize payouts.
 - **Payments per turn:** payments are generated for each member, with statuses `PENDING`, `PAID`, `VALIDATED` and `LATE`.
-- **Card payments with Stripe Checkout** (test mode), confirmed through a webhook. The UI polls briefly after the redirect until the payment shows as validated.
+- **Card payments with Stripe Checkout** (test mode), confirmed through a webhook. The UI polls briefly after the payment page is closed until the payment shows as validated.
 - **Optional manual declaration** (cash or transfer), validated by the organizer. Enabled with a feature flag.
 - **Payouts:** once all payments are validated, the organizer confirms the payout to the turn's beneficiary and closes the turn.
-- **PDF receipts:** generated in the browser for every validated payment, downloadable by the member and by the organizer.
-- **Profile page** to manage personal details (including phone and IBAN) and change the password.
+- **PDF receipts:** generated on the client (in the browser on the web, on the device on mobile) for every validated payment, downloadable or shareable by the member and by the organizer.
+- **Profile page** to manage personal details (including phone and IBAN, with IBAN validation) and change the password.
+- **Mobile app (React Native, Expo):** the same features on iOS and Android, with bottom-tab navigation, secure token storage, pull to refresh and the native share sheet for receipts.
 
 ## Tech stack
 
@@ -32,8 +34,9 @@ A full-stack platform to digitize **daret** (tontine) management, the traditiona
 | Auth | JWT |
 | Database | PostgreSQL |
 | Payments | Stripe Checkout and webhooks |
-| Frontend | Next.js, React, TypeScript, Tailwind CSS |
-| PDF | jsPDF (client side) |
+| Web frontend | Next.js, React, TypeScript, Tailwind CSS |
+| Mobile app | React Native, Expo, Expo Router, TypeScript |
+| PDF | jsPDF (web), expo-print and expo-sharing (mobile) |
 | Deployment | Docker, Docker Compose |
 
 ## Roles
@@ -106,24 +109,51 @@ npm run dev
 
 The frontend reads `NEXT_PUBLIC_API_URL` (and optionally `NEXT_PUBLIC_MANUAL_PAYMENTS=true`) from `.env.local`.
 
+### Option 3: Mobile app (Expo Go)
+
+Prerequisites: Node.js 22, the backend running, and the **Expo Go** app on your phone (free, on the App Store and Google Play). The phone and the computer must be on the same Wi-Fi network.
+
+```bash
+cd daret-app
+npm install
+cp .env.example .env     # then set your computer's local IP
+npx expo start
+```
+
+Scan the QR code with Expo Go (Camera app on iOS, Expo Go on Android).
+
+| Variable | Description |
+|---|---|
+| `EXPO_PUBLIC_API_URL` | Backend URL reachable from the phone, e.g. `http://192.168.1.23:8080` (`localhost` does not work on a phone) |
+| `EXPO_PUBLIC_MANUAL_PAYMENTS` | `true` to show the manual cash/transfer declaration, must match the backend flag |
+
+Find your local IP with `ipconfig` on Windows or `ipconfig getifaddr en0` on macOS. After editing `.env`, restart with `npx expo start --clear`.
+
 ## Project structure
 
 ```
 daret-digital/
 ├── backend/             # Spring Boot API (auth, groups, payments, payouts)
-├── frontend/            # Next.js app
+├── frontend/            # Next.js web app
+├── daret-app/           # React Native (Expo) mobile app
+│   └── src/
+│       ├── app/         # Expo Router screens (auth, tabs, daret detail)
+│       ├── components/  # Shared UI, forms, payments panel
+│       └── lib/         # API client, auth context, IBAN helpers, receipts
 ├── docker-compose.yml
 └── .env.example
 ```
 
 ## Roadmap
 
-- Automatic payment reminders (email, WhatsApp)
+- Automatic payment reminders (email, WhatsApp, mobile push notifications)
+- Deep link back into the mobile app after a Stripe payment
 - Payment proof upload for manual payments
 - Full payment history and balance export per member
 - API documentation (OpenAPI) and CI pipeline
+- Production build of the mobile app (EAS Build)
 
 ## Author
 
 **Khadija El Bachouri**
-[LinkedIn](https://linkedin.com/in/khadija-elbachouri) | [GitHub](https://github.com/khadija-ELBACHOURI) | [Portfolio](hadijaelbachouri.me)
+[LinkedIn](https://linkedin.com/in/khadija-elbachouri) | [GitHub](https://github.com/khadija-ELBACHOURI) | [Portfolio](https://hadijaelbachouri.me)
