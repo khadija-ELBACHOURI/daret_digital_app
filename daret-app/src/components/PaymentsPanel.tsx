@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Text, View } from "react-native";
 import * as WebBrowser from "expo-web-browser";
+import * as Linking from "expo-linking";
 import { AlertTriangle, CheckCircle2, Clock, Download, Gift, Wallet } from "lucide-react-native";
 import {
   closeTurn,
@@ -135,8 +136,13 @@ export default function PaymentsPanel({
     setDownloadingId(payment.id);
     try {
       await downloadReceipt({ payment, groupName, totalTurns });
-    } catch {
-      setError("Impossible de générer le reçu. Réessayez.");
+    } catch (err) {
+      console.warn("Receipt error:", err);
+      setError(
+        err instanceof Error && err.message
+          ? `Impossible de générer le reçu: ${err.message}`
+          : "Impossible de générer le reçu. Réessayez."
+      );
     } finally {
       setDownloadingId(null);
     }
@@ -146,8 +152,11 @@ export default function PaymentsPanel({
     setError(null);
     setPayingByCard(true);
     try {
-      const { url } = await createCheckout(groupId);
-      await WebBrowser.openBrowserAsync(url); // resolves when the user closes the browser
+      // Deep link back into the app (exp://... in Expo Go, daret://... in a real build).
+      const returnUrl = Linking.createURL("payment-result");
+      const { url } = await createCheckout(groupId, returnUrl);
+      // Closes by itself when the page redirects to returnUrl, or when the user dismisses it.
+      await WebBrowser.openAuthSessionAsync(url, returnUrl);
       await loadPayments();
       setPolling(true);
     } catch (err) {

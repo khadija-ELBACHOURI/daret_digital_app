@@ -299,8 +299,10 @@ export async function declareMyPayment(groupId: string, proofUrl?: string): Prom
 }
 
 // Starts a Stripe Checkout session and returns the hosted page URL.
-export async function createCheckout(groupId: string): Promise<{ url: string }> {
-  const res = await request(`/api/groups/${groupId}/payments/me/checkout`, {
+// returnUrl (mobile only): deep link the backend must redirect to after the Stripe page.
+export async function createCheckout(groupId: string, returnUrl?: string): Promise<{ url: string }> {
+  const query = returnUrl ? `?returnUrl=${encodeURIComponent(returnUrl)}` : "";
+  const res = await request(`/api/groups/${groupId}/payments/me/checkout${query}`, {
     method: "POST",
     headers: authHeaders(),
   });
