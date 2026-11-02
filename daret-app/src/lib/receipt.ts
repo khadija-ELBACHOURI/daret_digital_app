@@ -1,4 +1,5 @@
 import * as Print from "expo-print";
+import { File, Paths } from "expo-file-system";
 import * as Sharing from "expo-sharing";
 import type { PaymentResponse } from "@/lib/api";
 
@@ -83,15 +84,30 @@ export async function downloadReceipt({ payment, groupName, totalTurns }: Receip
   </body>
 </html>`;
 
-  const { uri } = await Print.printToFileAsync({ html });
+  // Build the PDF as base64 and write it ourselves into the app cache: the file created by
+  // printToFileAsync is not readable by expo-sharing / expo-file-system in Expo Go on Android.
+  try {
+    const { base64 } = await Print.printToFileAsync({ html, base64: true });
+    if (!base64) throw new Error("PDF vide");
 
-  if (await Sharing.isAvailableAsync()) {
-    await Sharing.shareAsync(uri, {
-      mimeType: "application/pdf",
-      dialogTitle: `Reçu ${receiptNumber}`,
-      UTI: "com.adobe.pdf",
-    });
-  } else {
-    throw new Error("Partage indisponible sur cet appareil.");
+    const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+    const file = new File(Paths.cache, `recu-${receiptNumber}.pdf`);
+    if (file.exists) file.delete();
+    file.create();
+    file.write(bytes);
+
+    if (await Sharing.isAvailableAsync()) {
+      await Sharing.shareAsync(file.uri, {
+        mimeType: "application/pdf",
+        dialogTitle: `Reçu ${receiptNumber}`,
+        UTI: "com.adobe.pdf",
+      });
+      return;
+    }
+  } catch (err) {
+    console.warn("Receipt share failed, falling back to the print dialog:", err);
   }
+
+  // Fallback: system print dialog, which has a "Save as PDF" option.
+  await Print.printAsync({ html });
 }
