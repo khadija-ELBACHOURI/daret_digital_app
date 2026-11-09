@@ -2,7 +2,7 @@
 
 import type { FormEvent, ReactNode } from "react";
 import { useEffect, useState } from "react";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, Landmark, Lock, ShieldCheck, Phone } from "lucide-react";
 import { getMyProfile, updateMyProfile, changeMyPassword } from "@/lib/api";
 import PasswordInput from "@/components/PasswordInput";
 import { formatIban, ibanProblem, normalizeIban } from "@/lib/iban";
@@ -10,6 +10,7 @@ import {
   btnPrimary,
   btnSecondary,
   card,
+  display,
   errorBox,
   inputClass,
   labelClass,
@@ -19,9 +20,34 @@ import {
 } from "@/components/ui";
 
 const emptyProfile = { firstname: "", lastname: "", email: "", phone: "", iban: "" };
+type Profile = typeof emptyProfile;
+
+function toProfile(u: Partial<Record<keyof Profile, string | null>>): Profile {
+  return {
+    firstname: u.firstname ?? "",
+    lastname: u.lastname ?? "",
+    email: u.email ?? "",
+    phone: u.phone ?? "",
+    iban: formatIban(u.iban ?? ""),
+  };
+}
+
+// 0 to 4
+function passwordScore(pwd: string): number {
+  let score = 0;
+  if (pwd.length >= 8) score++;
+  if (/[A-Z]/.test(pwd) && /[a-z]/.test(pwd)) score++;
+  if (/\d/.test(pwd)) score++;
+  if (/[^A-Za-z0-9]/.test(pwd) || pwd.length >= 12) score++;
+  return score;
+}
+
+const STRENGTH_LABELS = ["Très faible", "Faible", "Moyen", "Bon", "Excellent"];
+const STRENGTH_COLORS = ["#D9483B", "#D9483B", "#FFB81C", "#1FB89F", "#0B7A69"];
 
 export default function ProfilPage() {
-  const [profile, setProfile] = useState(emptyProfile);
+  const [profile, setProfile] = useState<Profile>(emptyProfile);
+  const [savedSnapshot, setSavedSnapshot] = useState<Profile>(emptyProfile);
   const [passwords, setPasswords] = useState({ current: "", next: "", confirm: "" });
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -37,15 +63,11 @@ export default function ProfilPage() {
 
   useEffect(() => {
     getMyProfile()
-      .then((u) =>
-        setProfile({
-          firstname: u.firstname ?? "",
-          lastname: u.lastname ?? "",
-          email: u.email ?? "",
-          phone: u.phone ?? "",
-          iban: formatIban(u.iban ?? ""),
-        })
-      )
+      .then((u) => {
+        const p = toProfile(u);
+        setProfile(p);
+        setSavedSnapshot(p);
+      })
       .catch((err: Error) => setLoadError(err.message))
       .finally(() => setLoading(false));
   }, []);
@@ -53,6 +75,21 @@ export default function ProfilPage() {
   const ibanMessage = ibanProblem(profile.iban);
   const ibanFilled = normalizeIban(profile.iban) !== "";
   const showIbanError = ibanTouched && ibanMessage !== null;
+
+  const dirty = JSON.stringify(profile) !== JSON.stringify(savedSnapshot);
+
+  // Completion: name, phone and a valid IBAN
+  const checklist = [
+    { label: "Nom complet", done: !!profile.firstname.trim() && !!profile.lastname.trim() },
+    { label: "Téléphone", done: !!profile.phone.trim() },
+    { label: "IBAN", done: ibanFilled && ibanMessage === null },
+  ];
+  const doneCount = checklist.filter((c) => c.done).length;
+  const completion = Math.round((doneCount / checklist.length) * 100);
+
+  const initials = `${profile.firstname[0] ?? ""}${profile.lastname[0] ?? ""}`.toUpperCase() || "?";
+
+  const score = passwordScore(passwords.next);
 
   async function handleProfileSubmit(e: FormEvent) {
     e.preventDefault();
@@ -66,13 +103,9 @@ export default function ProfilPage() {
     setSavingProfile(true);
     try {
       const u = await updateMyProfile({ ...profile, iban: normalizeIban(profile.iban) });
-      setProfile({
-        firstname: u.firstname ?? "",
-        lastname: u.lastname ?? "",
-        email: u.email ?? "",
-        phone: u.phone ?? "",
-        iban: formatIban(u.iban ?? ""),
-      });
+      const p = toProfile(u);
+      setProfile(p);
+      setSavedSnapshot(p);
       setIbanTouched(false);
       setSavedProfile(true);
       setTimeout(() => setSavedProfile(false), 2000);
@@ -126,6 +159,57 @@ export default function ProfilPage() {
         <h1 className={`${pageTitle} mb-1`}>Profil</h1>
         <p className={`mb-6 text-sm ${subtle}`}>Vos informations personnelles.</p>
 
+        {/* Identity header with completion */}
+        <div className={`${card} mb-4 p-5`}>
+          <div className="flex items-center gap-4">
+            <div
+              className={`${display} flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-[#1B2A9B] text-xl font-extrabold text-white`}
+              aria-hidden="true"
+            >
+              {initials}
+            </div>
+            <div className="min-w-0">
+              <p className={`${display} truncate text-lg font-bold text-[#0E1442]`}>
+                {profile.firstname} {profile.lastname}
+              </p>
+              <p className={`truncate text-sm ${subtle}`}>{profile.email}</p>
+            </div>
+          </div>
+
+          <div className="mt-5">
+            <div className="mb-1.5 flex items-center justify-between text-xs">
+              <span className="font-medium text-[#0E1442]">Profil complété à {completion}%</span>
+              <span className={subtle}>
+                {doneCount}/{checklist.length}
+              </span>
+            </div>
+            <div className="h-2 overflow-hidden rounded-full bg-[#E6E9FB]">
+              <div
+                className="h-full rounded-full bg-[#1FB89F] transition-all duration-500"
+                style={{ width: `${completion}%` }}
+              />
+            </div>
+            <ul className="mt-3 flex flex-wrap gap-2">
+              {checklist.map((c) => (
+                <li
+                  key={c.label}
+                  className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${
+                    c.done ? "bg-[#DDF7F2] text-[#0B7A69]" : "bg-[#FFF3D1] text-[#8A5A00]"
+                  }`}
+                >
+                  {c.done && <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />}
+                  {c.label}
+                </li>
+              ))}
+            </ul>
+            {!checklist[2].done && (
+              <p className={`mt-3 text-xs ${subtle}`}>
+                Ajoutez votre IBAN pour que l&apos;organisateur puisse vous verser votre tour.
+              </p>
+            )}
+          </div>
+        </div>
+
         <form onSubmit={handleProfileSubmit} className={`${card} space-y-4 p-6`}>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="Prénom">
@@ -147,15 +231,18 @@ export default function ProfilPage() {
           </div>
           <Field label="Email">
             <input type="email" value={profile.email} className={inputClass} disabled />
+            <span className={`mt-1.5 block text-xs ${subtle}`}>L&apos;email ne peut pas être modifié.</span>
           </Field>
-          <Field label="Téléphone">
+          <Field label="Téléphone" icon={<Phone className="h-3.5 w-3.5" />}>
             <input
+              type="tel"
               value={profile.phone}
               onChange={(e) => setProfile((p) => ({ ...p, phone: e.target.value }))}
+              placeholder="06 00 00 00 00"
               className={inputClass}
             />
           </Field>
-          <Field label="IBAN (pour recevoir vos tours)">
+          <Field label="IBAN (pour recevoir vos tours)" icon={<Landmark className="h-3.5 w-3.5" />}>
             <div className="relative">
               <input
                 value={profile.iban}
@@ -185,14 +272,20 @@ export default function ProfilPage() {
 
           {profileError && <p role="alert" className={errorBox}>{profileError}</p>}
 
-          <button type="submit" disabled={savingProfile} className={btnPrimary}>
-            {savingProfile ? "Enregistrement..." : savedProfile ? "Enregistré ✓" : "Enregistrer"}
-          </button>
+          <div className="flex flex-wrap items-center gap-3">
+            <button type="submit" disabled={savingProfile || !dirty} className={btnPrimary}>
+              {savingProfile ? "Enregistrement..." : savedProfile ? "Enregistré ✓" : "Enregistrer"}
+            </button>
+            {dirty && !savingProfile && <span className="text-xs text-[#8A5A00]">Modifications non enregistrées</span>}
+          </div>
         </form>
       </div>
 
       <div>
-        <h2 className={`${sectionTitle} mb-1`}>Mot de passe</h2>
+        <h2 className={`${sectionTitle} mb-1 flex items-center gap-2`}>
+          <Lock className="h-4 w-4 text-[#1B2A9B]" aria-hidden="true" />
+          Mot de passe
+        </h2>
         <p className={`mb-4 text-sm ${subtle}`}>Modifiez votre mot de passe.</p>
 
         <form onSubmit={handlePasswordSubmit} className={`${card} space-y-4 p-6`}>
@@ -218,6 +311,20 @@ export default function ProfilPage() {
               autoComplete="new-password"
               placeholder="8 caractères minimum"
             />
+            {passwords.next && (
+              <div className="mt-2" aria-live="polite">
+                <div className="flex gap-1.5">
+                  {[1, 2, 3, 4].map((i) => (
+                    <div
+                      key={i}
+                      className="h-1.5 flex-1 rounded-full transition-colors"
+                      style={{ backgroundColor: i <= score ? STRENGTH_COLORS[score] : "#E6E9FB" }}
+                    />
+                  ))}
+                </div>
+                <p className={`mt-1 text-xs ${subtle}`}>Sécurité : {STRENGTH_LABELS[score]}</p>
+              </div>
+            )}
           </div>
           <div>
             <label htmlFor="pwd-confirm" className={labelClass}>
@@ -229,6 +336,12 @@ export default function ProfilPage() {
               onChange={(v) => setPasswords((p) => ({ ...p, confirm: v }))}
               autoComplete="new-password"
             />
+            {passwords.confirm && passwords.next === passwords.confirm && (
+              <p className="mt-1.5 flex items-center gap-1.5 text-xs text-[#0B7A69]">
+                <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
+                Les mots de passe correspondent
+              </p>
+            )}
           </div>
 
           {passwordError && <p role="alert" className={errorBox}>{passwordError}</p>}
@@ -237,15 +350,23 @@ export default function ProfilPage() {
             {savingPassword ? "Mise à jour..." : savedPassword ? "Mot de passe modifié ✓" : "Mettre à jour"}
           </button>
         </form>
+
+        <div className="mt-4 flex items-start gap-3 rounded-2xl bg-[#DDF7F2] p-4 text-sm text-[#0B7A69]">
+          <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
+          <p>Votre IBAN n&apos;est visible que par l&apos;organisateur de vos daret, pour organiser les versements.</p>
+        </div>
       </div>
     </div>
   );
 }
 
-function Field({ label, children }: { label: string; children: ReactNode }) {
+function Field({ label, icon, children }: { label: string; icon?: ReactNode; children: ReactNode }) {
   return (
     <label className="block">
-      <span className={labelClass}>{label}</span>
+      <span className={`${labelClass} flex items-center gap-1.5`}>
+        {icon}
+        {label}
+      </span>
       {children}
     </label>
   );
