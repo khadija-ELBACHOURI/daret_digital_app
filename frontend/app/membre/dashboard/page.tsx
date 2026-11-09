@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Coins, Layers, Plus, UserPlus, Wallet } from "lucide-react";
+import { ArrowRight, Coins, Layers, PartyPopper, Plus, UserPlus, Wallet } from "lucide-react";
 import {
   getMyGroups,
   getMyProfile,
@@ -32,6 +32,13 @@ interface DueItem {
 }
 
 const money = (n: number) => `${n.toLocaleString("fr-FR")} MAD`;
+
+function greeting(): string {
+  const h = new Date().getHours();
+  if (h < 5) return "Bonsoir";
+  if (h < 18) return "Bonjour";
+  return "Bonsoir";
+}
 
 export default function DashboardPage() {
   const { userId } = useAuth();
@@ -87,17 +94,32 @@ export default function DashboardPage() {
   const totalDue = due.reduce((sum, d) => sum + d.payment.amount, 0);
   const perTurn = active.reduce((sum, g) => sum + g.montant, 0);
 
+  // The active daret where I will receive the pot the soonest (0 = this turn)
+  const nextReceive = active
+    .filter((g) => g.position != null && g.position >= g.tourActuel + 1)
+    .map((g) => ({ group: g, turnsAway: (g.position as number) - (g.tourActuel + 1) }))
+    .sort((a, b) => a.turnsAway - b.turnsAway)[0];
+
   return (
     <div>
       <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className={pageTitle}>Bonjour{firstname ? `, ${firstname}` : ""}</h1>
+          <h1 className={pageTitle}>
+            {greeting()}
+            {firstname ? `, ${firstname}` : ""}
+          </h1>
           <p className={`mt-1 text-sm ${subtle}`}>Voici où en sont vos darets.</p>
         </div>
-        <Link href="/membre/daret/creer" className={btnPrimary}>
-          <Plus className="h-4 w-4" />
-          Nouvelle daret
-        </Link>
+        <div className="flex gap-2">
+          <Link href="/membre/daret/join" className={btnSecondary}>
+            <UserPlus className="h-4 w-4" />
+            Rejoindre
+          </Link>
+          <Link href="/membre/daret/creer" className={btnPrimary}>
+            <Plus className="h-4 w-4" />
+            Nouvelle daret
+          </Link>
+        </div>
       </div>
 
       {error && <p className={`mb-6 ${errorBox}`}>{error}</p>}
@@ -124,6 +146,33 @@ export default function DashboardPage() {
 
       {!loading && !error && groups.length > 0 && (
         <>
+          {/* Next payout hero */}
+          {nextReceive && (
+            <Link
+              href={`/membre/daret/${nextReceive.group.id}`}
+              className="group mb-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-[#1B2A9B] p-6 text-white transition-opacity hover:opacity-95 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FFB81C]/40"
+            >
+              <div className="flex items-center gap-4">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white/15">
+                  <PartyPopper className="h-6 w-6" aria-hidden="true" />
+                </div>
+                <div>
+                  <p className="text-sm text-white/80">
+                    {nextReceive.turnsAway === 0
+                      ? `C'est votre tour de recevoir dans ${nextReceive.group.nom}`
+                      : `Prochaine réception dans ${nextReceive.group.nom} : dans ${nextReceive.turnsAway} tour${
+                          nextReceive.turnsAway > 1 ? "s" : ""
+                        }`}
+                  </p>
+                  <p className={`${display} text-2xl font-extrabold`}>
+                    {money(nextReceive.group.montant * nextReceive.group.nombreMembres)}
+                  </p>
+                </div>
+              </div>
+              <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" aria-hidden="true" />
+            </Link>
+          )}
+
           <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
             <StatCard
               icon={<Layers className="h-4 w-4" />}
@@ -190,11 +239,14 @@ export default function DashboardPage() {
                 {active.map((g) => {
                   const turn = Math.min(g.tourActuel + 1, g.nombreMembres);
                   const myTurn = g.position != null && g.position === g.tourActuel + 1;
+                  const percent = Math.round((g.tourActuel / g.nombreMembres) * 100);
                   return (
                     <Link
                       key={g.id}
                       href={`/membre/daret/${g.id}`}
-                      className={`${card} block p-5 transition-colors hover:border-[#1B2A9B]/40 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FFB81C]/40`}
+                      className={`${card} block p-5 transition-colors hover:border-[#1B2A9B]/40 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FFB81C]/40 ${
+                        myTurn ? "!border-[#1FB89F]" : ""
+                      }`}
                     >
                       <div className="mb-1 flex items-start justify-between gap-3">
                         <span className={`${display} text-lg font-bold text-[#0E1442]`}>{g.nom}</span>
@@ -207,17 +259,17 @@ export default function DashboardPage() {
                       </p>
 
                       <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-[#E8EAF4]">
-                        <div
-                          className="h-2 rounded-full bg-[#1B2A9B]"
-                          style={{ width: `${(g.tourActuel / g.nombreMembres) * 100}%` }}
-                        />
+                        <div className="h-2 rounded-full bg-[#1B2A9B]" style={{ width: `${percent}%` }} />
                       </div>
+                      <p className={`mt-1.5 text-xs ${subtle}`}>{percent}% du cycle terminé</p>
 
                       <div className="mt-3 flex items-center justify-between text-sm">
                         <span className={subtle}>
                           {g.position != null ? `Ma position : #${g.position}` : "Position non attribuée"}
                         </span>
-                        {myTurn && <span className={`${badge} bg-[#FFF3D1] text-[#8A5A00]`}>C&apos;est votre tour</span>}
+                        {myTurn && (
+                          <span className={`${badge} bg-[#DDF7F2] text-[#0B7A69]`}>C&apos;est votre tour</span>
+                        )}
                       </div>
                     </Link>
                   );
