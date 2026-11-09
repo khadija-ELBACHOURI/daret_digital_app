@@ -1,17 +1,19 @@
 import { ReactNode, useCallback, useEffect, useState } from "react";
-import { Linking, Pressable, Text, View } from "react-native";
+import { Linking, Pressable, Share, Text, View } from "react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import * as Clipboard from "expo-clipboard";
 import {
   Calendar,
   Check,
   ChevronDown,
+  Coins,
   Copy,
   Landmark,
   Mail,
   Pencil,
   Phone,
   Repeat,
+  Share2,
   Trash2,
   UserMinus,
   Wallet,
@@ -142,6 +144,14 @@ export default function DaretDetailPage() {
   const canDelete = isOrganisateur && group.statut === "EN_ATTENTE";
   const canRemoveMembers = isOrganisateur && group.statut === "EN_ATTENTE";
 
+  const isActive = group.statut === "ACTIVE";
+  const currentTurn = Math.min(group.tourActuel + 1, group.nombreMembres);
+  const cyclePercent =
+    group.statut === "TERMINEE" ? 100 : isActive ? Math.round((group.tourActuel / group.nombreMembres) * 100) : 0;
+  const membersPercent = Math.min(100, Math.round((members.length / group.nombreMembres) * 100));
+  const pot = group.montant * group.nombreMembres;
+  const turnOwner = isActive ? members.find((m) => m.position === group.tourActuel + 1) : undefined;
+
   async function handleCopyCode() {
     if (!group?.inviteCode) return;
     try {
@@ -150,6 +160,17 @@ export default function DaretDetailPage() {
       setTimeout(() => setCopied(false), 2000);
     } catch {
       // clipboard unavailable: the user can copy by hand
+    }
+  }
+
+  async function handleShareCode() {
+    if (!group?.inviteCode) return;
+    try {
+      await Share.share({
+        message: `Rejoins ma daret "${group.nom}" avec le code d'invitation : ${group.inviteCode}`,
+      });
+    } catch {
+      // share sheet dismissed or unavailable
     }
   }
 
@@ -299,6 +320,57 @@ export default function DaretDetailPage() {
         </View>
       </View>
 
+      {/* Progress summary */}
+      <View
+        style={{
+          marginBottom: 20,
+          padding: 18,
+          borderRadius: 16,
+          backgroundColor: colors.blue,
+          gap: 10,
+        }}
+      >
+        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+          <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: "rgba(255,255,255,0.8)" }}>
+            {isActive
+              ? `Tour ${currentTurn} sur ${group.nombreMembres}`
+              : group.statut === "TERMINEE"
+                ? "Cycle terminé"
+                : "En attente de démarrage"}
+          </Text>
+          <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: "#fff" }}>
+            {isActive || group.statut === "TERMINEE" ? `${cyclePercent}%` : `${members.length}/${group.nombreMembres} membres`}
+          </Text>
+        </View>
+
+        <View style={{ height: 8, borderRadius: 4, backgroundColor: "rgba(255,255,255,0.2)", overflow: "hidden" }}>
+          <View
+            style={{
+              width: `${isActive || group.statut === "TERMINEE" ? cyclePercent : membersPercent}%`,
+              height: "100%",
+              borderRadius: 4,
+              backgroundColor: "#fff",
+            }}
+          />
+        </View>
+
+        <View>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: "rgba(255,255,255,0.8)" }}>
+            Cagnotte par tour
+          </Text>
+          <Text style={{ fontFamily: fonts.displayXL, fontSize: 24, color: "#fff" }}>
+            {pot.toLocaleString("fr-FR")} MAD
+          </Text>
+        </View>
+
+        {turnOwner && (
+          <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: "#fff" }}>
+            Bénéficiaire actuel : {turnOwner.firstname} {turnOwner.lastname}
+            {turnOwner.userId === userId ? " (vous)" : ""}
+          </Text>
+        )}
+      </View>
+
       {canDelete && confirmingDelete && (
         <View
           style={{
@@ -363,41 +435,66 @@ export default function DaretDetailPage() {
           <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: "rgba(138,90,0,0.8)", marginBottom: 10 }}>
             Partagez ce code pour inviter des personnes à rejoindre la daret.
           </Text>
-          <Button
-            title={copied ? "Copié" : "Copier"}
-            onPress={handleCopyCode}
-            variant="secondary"
-            size="sm"
-            icon={copied ? <Check size={14} color={colors.mintDark} /> : <Copy size={14} color={colors.blue} />}
-          />
+          <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap" }}>
+            <Button
+              title={copied ? "Copié" : "Copier"}
+              onPress={handleCopyCode}
+              variant="secondary"
+              size="sm"
+              icon={copied ? <Check size={14} color={colors.mintDark} /> : <Copy size={14} color={colors.blue} />}
+            />
+            <Button
+              title="Partager"
+              onPress={handleShareCode}
+              size="sm"
+              icon={<Share2 size={14} color="#fff" />}
+            />
+          </View>
         </View>
       )}
 
       {/* Info cards */}
-      <View style={{ gap: 12, marginBottom: 28 }}>
-        <InfoCard
-          icon={<Wallet size={16} color={colors.blue} />}
-          label="Montant / tour"
-          value={`${group.montant.toLocaleString("fr-FR")} MAD`}
-        />
-        <InfoCard
-          icon={<Calendar size={16} color={colors.blue} />}
-          label="Date de début"
-          value={formatStart(group.dateDebut)}
-        />
-        <InfoCard
-          icon={<Repeat size={16} color={colors.blue} />}
-          label="Fréquence"
-          value={group.frequence.toLowerCase()}
-          capitalize
-        />
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12, marginBottom: 28 }}>
+        <View style={{ flexBasis: "47%", flexGrow: 1 }}>
+          <InfoCard
+            icon={<Wallet size={16} color={colors.blue} />}
+            label="Montant / tour"
+            value={`${group.montant.toLocaleString("fr-FR")} MAD`}
+          />
+        </View>
+        <View style={{ flexBasis: "47%", flexGrow: 1 }}>
+          <InfoCard
+            icon={<Coins size={16} color={colors.blue} />}
+            label="Cagnotte"
+            value={`${pot.toLocaleString("fr-FR")} MAD`}
+          />
+        </View>
+        <View style={{ flexBasis: "47%", flexGrow: 1 }}>
+          <InfoCard
+            icon={<Calendar size={16} color={colors.blue} />}
+            label="Date de début"
+            value={formatStart(group.dateDebut)}
+          />
+        </View>
+        <View style={{ flexBasis: "47%", flexGrow: 1 }}>
+          <InfoCard
+            icon={<Repeat size={16} color={colors.blue} />}
+            label="Fréquence"
+            value={group.frequence.toLowerCase()}
+            capitalize
+          />
+        </View>
       </View>
 
       {/* Members */}
       <View style={{ marginBottom: 28 }}>
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
           <Text style={type.sectionTitle}>Membres</Text>
-          {members.length >= group.nombreMembres && <Text style={type.small}>Groupe complet</Text>}
+          <Text style={type.small}>
+            {members.length >= group.nombreMembres
+              ? "Groupe complet"
+              : `${group.nombreMembres - members.length} place${group.nombreMembres - members.length > 1 ? "s" : ""} libre${group.nombreMembres - members.length > 1 ? "s" : ""}`}
+          </Text>
         </View>
 
         {isOrganisateur && members.length < group.nombreMembres && (
@@ -417,6 +514,12 @@ export default function DaretDetailPage() {
             const expanded = isOrganisateur && expandedId === m.userId;
             const contact = contacts[m.userId];
 
+            const isMe = m.userId === userId;
+            const isTurn = isActive && m.position != null && m.position === group.tourActuel + 1;
+            const hasReceived =
+              m.position != null &&
+              (group.statut === "TERMINEE" || (isActive && m.position <= group.tourActuel));
+
             const identity = (
               <View style={{ flexDirection: "row", alignItems: "center", gap: 10, flexShrink: 1 }}>
                 <View
@@ -434,12 +537,13 @@ export default function DaretDetailPage() {
                 <View style={{ flexShrink: 1, gap: 4 }}>
                   <Text style={type.bodyMedium}>
                     {m.firstname} {m.lastname}
+                    {isMe ? " (vous)" : ""}
                   </Text>
-                  {m.role === "ORGANISATEUR" && (
-                    <View style={{ alignSelf: "flex-start" }}>
-                      <Badge label="Organisateur" bg={colors.amberBg} fg={colors.amberText} />
-                    </View>
-                  )}
+                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+                    {m.role === "ORGANISATEUR" && <Badge label="Organisateur" bg={colors.amberBg} fg={colors.amberText} />}
+                    {isTurn && <Badge label="Tour en cours" bg={colors.greenBg} fg={colors.mintDark} />}
+                    {hasReceived && <Badge label="Déjà reçu" bg={colors.paleBlue} fg={colors.blue} />}
+                  </View>
                 </View>
               </View>
             );
@@ -447,7 +551,7 @@ export default function DaretDetailPage() {
             return (
               <View key={m.userId}>
                 {idx > 0 && <Divider />}
-                <View style={{ padding: 16, gap: 10 }}>
+                <View style={{ padding: 16, gap: 10, backgroundColor: isTurn ? colors.greenBg : undefined }}>
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
                     {isOrganisateur ? (
                       <Select
@@ -583,7 +687,7 @@ export default function DaretDetailPage() {
       </View>
 
       {/* Payments */}
-      {group.statut === "ACTIVE" && (
+      {isActive && (
         <View style={{ marginBottom: 28 }}>
           <PaymentsPanel
             groupId={id}
@@ -623,7 +727,7 @@ function InfoCard({
   capitalize?: boolean;
 }) {
   return (
-    <Card style={{ padding: 18 }}>
+    <Card style={{ padding: 16 }}>
       <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 10 }}>
         <View
           style={{
@@ -637,12 +741,12 @@ function InfoCard({
         >
           {icon}
         </View>
-        <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.muted }}>{label}</Text>
+        <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.muted, flexShrink: 1 }}>{label}</Text>
       </View>
       <Text
         style={{
           fontFamily: fonts.displayXL,
-          fontSize: 20,
+          fontSize: 18,
           color: colors.ink,
           textTransform: capitalize ? "capitalize" : "none",
         }}

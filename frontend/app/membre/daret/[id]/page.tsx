@@ -8,6 +8,8 @@ import {
   Pencil,
   Copy,
   Check,
+  Coins,
+  Share2,
   Trash2,
   UserMinus,
   ChevronDown,
@@ -110,6 +112,16 @@ export default function DaretDetailPage() {
   const canDelete = isOrganisateur && group.statut === "EN_ATTENTE";
   const canRemoveMembers = isOrganisateur && group.statut === "EN_ATTENTE";
 
+  const isActive = group.statut === "ACTIVE";
+  const isFinished = group.statut === "TERMINEE";
+  const currentTurn = Math.min(group.tourActuel + 1, group.nombreMembres);
+  const cyclePercent = isFinished ? 100 : isActive ? Math.round((group.tourActuel / group.nombreMembres) * 100) : 0;
+  const membersPercent = Math.min(100, Math.round((members.length / group.nombreMembres) * 100));
+  const showCycle = isActive || isFinished;
+  const pot = group.montant * group.nombreMembres;
+  const turnOwner = isActive ? members.find((m) => m.position === group.tourActuel + 1) : undefined;
+  const spotsLeft = group.nombreMembres - members.length;
+
   async function handleCopyCode() {
     if (!group?.inviteCode) return;
     try {
@@ -118,6 +130,28 @@ export default function DaretDetailPage() {
       setTimeout(() => setCopied(false), 2000);
     } catch {
       // clipboard unavailable (http, permissions): the user can copy by hand
+    }
+  }
+
+  async function handleShareCode() {
+    if (!group?.inviteCode) return;
+    const text = `Rejoins ma daret "${group.nom}" avec le code d'invitation : ${group.inviteCode}`;
+    const canShare = typeof navigator.share === "function";
+    try {
+      if (canShare) {
+        await navigator.share({ text });
+        return;
+      }
+    } catch (err) {
+      // user dismissed the share sheet: nothing to do
+      if (err instanceof DOMException && err.name === "AbortError") return;
+    }
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // clipboard unavailable: the user can copy by hand
     }
   }
 
@@ -255,6 +289,52 @@ export default function DaretDetailPage() {
         </div>
       </div>
 
+      {/* Progress summary */}
+      <div className="mb-6 rounded-2xl bg-[#1B2A9B] p-6 text-white">
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <p className="text-sm text-white/80">Cagnotte par tour</p>
+            <p className={`${display} text-3xl font-extrabold`}>{pot.toLocaleString("fr-FR")} MAD</p>
+          </div>
+          {turnOwner && (
+            <div className="rounded-xl bg-white/15 px-4 py-2 text-sm">
+              <span className="text-white/80">Bénéficiaire actuel : </span>
+              <span className="font-semibold">
+                {turnOwner.firstname} {turnOwner.lastname}
+                {turnOwner.userId === userId ? " (vous)" : ""}
+              </span>
+            </div>
+          )}
+        </div>
+
+        <div className="mt-5">
+          <div className="mb-1.5 flex items-center justify-between text-sm">
+            <span className="text-white/80">
+              {isActive
+                ? `Tour ${currentTurn} sur ${group.nombreMembres}`
+                : isFinished
+                  ? "Cycle terminé"
+                  : "En attente de démarrage"}
+            </span>
+            <span className="font-semibold">
+              {showCycle ? `${cyclePercent}%` : `${members.length}/${group.nombreMembres} membres`}
+            </span>
+          </div>
+          <div
+            className="h-2 overflow-hidden rounded-full bg-white/20"
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={showCycle ? cyclePercent : membersPercent}
+          >
+            <div
+              className="h-full rounded-full bg-white transition-all duration-500"
+              style={{ width: `${showCycle ? cyclePercent : membersPercent}%` }}
+            />
+          </div>
+        </div>
+      </div>
+
       {canDelete && confirmingDelete && (
         <div className="mb-6 rounded-2xl border-2 border-[#D9483B]/25 bg-[#FDECEA] p-5">
           <p className="mb-1 text-sm font-semibold text-[#0E1442]">Supprimer cette daret ?</p>
@@ -295,18 +375,29 @@ export default function DaretDetailPage() {
               Partagez ce code pour inviter des personnes à rejoindre la daret.
             </p>
           </div>
-          <button onClick={handleCopyCode} className={btnSecondarySm}>
-            {copied ? <Check className="h-3.5 w-3.5 text-[#0B7A69]" /> : <Copy className="h-3.5 w-3.5" />}
-            {copied ? "Copié" : "Copier"}
-          </button>
+          <div className="flex gap-2">
+            <button onClick={handleCopyCode} className={btnSecondarySm}>
+              {copied ? <Check className="h-3.5 w-3.5 text-[#0B7A69]" /> : <Copy className="h-3.5 w-3.5" />}
+              {copied ? "Copié" : "Copier"}
+            </button>
+            <button onClick={handleShareCode} className={btnSecondarySm}>
+              <Share2 className="h-3.5 w-3.5" />
+              Partager
+            </button>
+          </div>
         </div>
       )}
 
-      <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <InfoCard
           icon={<Wallet className="h-4 w-4" />}
           label="Montant / tour"
           value={`${group.montant.toLocaleString("fr-FR")} MAD`}
+        />
+        <InfoCard
+          icon={<Coins className="h-4 w-4" />}
+          label="Cagnotte"
+          value={`${pot.toLocaleString("fr-FR")} MAD`}
         />
         <InfoCard
           icon={<Calendar className="h-4 w-4" />}
@@ -327,7 +418,9 @@ export default function DaretDetailPage() {
       <div id="membres" className="mb-8 scroll-mt-8">
         <div className="mb-3 flex items-center justify-between">
           <h2 className={sectionTitle}>Membres</h2>
-          {members.length >= group.nombreMembres && <span className={`text-sm ${subtle}`}>Groupe complet</span>}
+          <span className={`text-sm ${subtle}`}>
+            {spotsLeft <= 0 ? "Groupe complet" : `${spotsLeft} place${spotsLeft > 1 ? "s" : ""} libre${spotsLeft > 1 ? "s" : ""}`}
+          </span>
         </div>
 
         {isOrganisateur && members.length < group.nombreMembres && (
@@ -347,6 +440,10 @@ export default function DaretDetailPage() {
             const expanded = isOrganisateur && expandedId === m.userId;
             const contact = contacts[m.userId];
 
+            const isMe = m.userId === userId;
+            const isTurn = isActive && m.position != null && m.position === group.tourActuel + 1;
+            const hasReceived = m.position != null && (isFinished || (isActive && m.position <= group.tourActuel));
+
             const identity = (
               <>
                 <span
@@ -357,17 +454,24 @@ export default function DaretDetailPage() {
                 </span>
                 <span className="font-medium text-[#0E1442]">
                   {m.firstname} {m.lastname}
+                  {isMe && <span className={`ml-1 text-xs font-normal ${subtle}`}>(vous)</span>}
                 </span>
                 {m.role === "ORGANISATEUR" && (
                   <span className={`${badge} bg-[#FFF3D1] text-[#8A5A00]`}>Organisateur</span>
                 )}
+                {isTurn && <span className={`${badge} bg-[#DDF7F2] text-[#0B7A69]`}>Tour en cours</span>}
+                {hasReceived && <span className={`${badge} bg-[#E6E9FB] text-[#1B2A9B]`}>Déjà reçu</span>}
               </>
             );
 
             return (
               <div key={m.userId}>
-                <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-3.5 text-sm">
-                  <div className="flex items-center gap-3">
+                <div
+                  className={`flex flex-wrap items-center justify-between gap-3 px-5 py-3.5 text-sm ${
+                    isTurn ? "bg-[#F0FBF8]" : ""
+                  }`}
+                >
+                  <div className="flex flex-wrap items-center gap-3">
                     {isOrganisateur ? (
                       <select
                         value={m.position ?? ""}
@@ -376,7 +480,7 @@ export default function DaretDetailPage() {
                         aria-label={`Position de ${m.firstname} ${m.lastname}`}
                         className={`${selectSmall} w-16 text-center`}
                       >
-                        <option value="">–</option>
+                        <option value="">-</option>
                         {Array.from({ length: group.nombreMembres }, (_, idx) => idx + 1).map((pos) => (
                           <option key={pos} value={pos} disabled={takenPositions.has(pos) && pos !== m.position}>
                             {pos}
@@ -385,7 +489,7 @@ export default function DaretDetailPage() {
                       </select>
                     ) : (
                       <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#E6E9FB] text-xs font-bold text-[#1B2A9B]">
-                        {m.position ?? "–"}
+                        {m.position ?? "-"}
                       </div>
                     )}
                     {isOrganisateur ? (
@@ -395,7 +499,7 @@ export default function DaretDetailPage() {
                         aria-expanded={expanded}
                         aria-controls={`contact-${m.userId}`}
                         title="Voir les informations de contact"
-                        className="flex items-center gap-3 rounded-xl py-1 pr-2 text-left transition-colors hover:bg-[#F4F6FB] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FFB81C]/40"
+                        className="flex flex-wrap items-center gap-3 rounded-xl py-1 pr-2 text-left transition-colors hover:bg-[#F4F6FB] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FFB81C]/40"
                       >
                         {identity}
                         <ChevronDown
@@ -404,7 +508,7 @@ export default function DaretDetailPage() {
                         />
                       </button>
                     ) : (
-                      identity
+                      <div className="flex flex-wrap items-center gap-3">{identity}</div>
                     )}
                   </div>
 
@@ -488,7 +592,7 @@ export default function DaretDetailPage() {
         </div>
       </div>
 
-      {group.statut === "ACTIVE" && (
+      {isActive && (
         <div id="paiements" className="mb-8 scroll-mt-8">
           <PaymentsPanel
             groupId={id}
